@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=6';
+} from './invoice.js?v=7';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -306,13 +306,77 @@ document.querySelectorAll('.view-switch .tab').forEach((tab) => {
   });
 });
 
-/** Skaliert das A4-Blatt auf die verfügbare Breite (mobil/Tablet). */
-function fitPaper() {
-  const available = preview.parentElement.clientWidth;
-  const paperWidth = 794; // 210 mm bei 96 dpi
-  preview.style.setProperty('--paper-zoom', available > 0 ? Math.min(1, available / paperWidth).toFixed(3) : 1);
+// ---------- Vorschau-Zoom ----------
+// Desktop: Standard ist „ganze Seite“ (Breite UND Höhe passen hinein); +/−, Strg/⌘ + Mausrad und
+// Touchpad-Pinch zoomen. Mobil/Tablet: Blatt füllt die Breite, kein Zoom (Pinch des Browsers bleibt).
+const PAPER_W = 794;   // 210 mm bei 96 dpi
+const PAPER_H = 1123;  // 297 mm bei 96 dpi
+const ZOOM_MIN = 0.3;
+const ZOOM_MAX = 3;
+const desktop = matchMedia('(min-width: 1101px)');
+const paperFit = $('#paper-fit');
+let manualZoom = null; // null = „ganze Seite“
+
+function fitScale() {
+  const pad = 32; // Luft für den Schatten
+  const w = paperFit.clientWidth - pad;
+  const h = paperFit.clientHeight - pad;
+  if (w <= 0) return 1;
+  return desktop.matches ? Math.min(w / PAPER_W, h / PAPER_H) : Math.min(1, (paperFit.clientWidth) / PAPER_W);
 }
-new ResizeObserver(fitPaper).observe(preview.parentElement);
+
+function applyZoom(anchor) {
+  const fit = fitScale();
+  const zoom = desktop.matches && manualZoom !== null ? manualZoom : fit;
+  // Punkt unter dem Mauszeiger beim Zoomen festhalten
+  const prev = parseFloat(preview.style.getPropertyValue('--paper-zoom')) || zoom;
+  const ax = anchor ? anchor.x + paperFit.scrollLeft : 0;
+  const ay = anchor ? anchor.y + paperFit.scrollTop : 0;
+  preview.style.setProperty('--paper-zoom', zoom.toFixed(4));
+  paperFit.classList.toggle('is-zoomed', desktop.matches && zoom > fit + 0.001);
+  $('#zoom-fit').textContent = `${Math.round(zoom * 100)} %`;
+  $('#zoom-fit').classList.toggle('is-fit', manualZoom === null);
+  $('#zoom-out').disabled = zoom <= ZOOM_MIN + 0.001;
+  $('#zoom-in').disabled = zoom >= ZOOM_MAX - 0.001;
+  if (anchor) {
+    const ratio = zoom / prev;
+    paperFit.scrollLeft = ax * ratio - anchor.x;
+    paperFit.scrollTop = ay * ratio - anchor.y;
+  }
+}
+
+function setZoom(value, anchor) {
+  const clamped = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, value));
+  // nah an „ganze Seite“ → wieder einrasten
+  manualZoom = Math.abs(clamped - fitScale()) < 0.02 ? null : clamped;
+  applyZoom(anchor);
+}
+const currentZoom = () => parseFloat(preview.style.getPropertyValue('--paper-zoom')) || fitScale();
+
+$('#zoom-in').addEventListener('click', () => setZoom(currentZoom() * 1.2));
+$('#zoom-out').addEventListener('click', () => setZoom(currentZoom() / 1.2));
+$('#zoom-fit').addEventListener('click', () => { manualZoom = null; applyZoom(); paperFit.scrollTo({ top: 0, left: 0 }); });
+
+// Strg/⌘ + Mausrad und Touchpad-Pinch (Chrome, Edge, Firefox melden Pinch als Wheel mit ctrlKey)
+paperFit.addEventListener('wheel', (e) => {
+  if (!desktop.matches || !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  const rect = paperFit.getBoundingClientRect();
+  setZoom(currentZoom() * Math.exp(-e.deltaY * 0.01), { x: e.clientX - rect.left, y: e.clientY - rect.top });
+}, { passive: false });
+
+// Safari: Pinch-Gesten auf dem Trackpad
+let gestureStart = 1;
+paperFit.addEventListener('gesturestart', (e) => { if (!desktop.matches) return; e.preventDefault(); gestureStart = currentZoom(); });
+paperFit.addEventListener('gesturechange', (e) => { if (!desktop.matches) return; e.preventDefault(); setZoom(gestureStart * e.scale); });
+
+// Höhe der Kopfzeile für die Vorschau-Höhe (CSS-Variable)
+const header = $('.app-header');
+new ResizeObserver(() => document.documentElement.style.setProperty('--header-h', `${header.offsetHeight}px`)).observe(header);
+
+const fitPaper = () => applyZoom();
+new ResizeObserver(fitPaper).observe(paperFit);
+desktop.addEventListener('change', () => { manualZoom = null; applyZoom(); });
 
 function update() {
   let totals = null;

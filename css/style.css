@@ -249,9 +249,38 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 .toast.show { translate: -50% 0; opacity: 1; }
 
 /* ---------- Vorschau (A4) ---------- */
-.preview-wrap { position: sticky; top: 108px; min-width: 0; }
-.paper-fit { min-width: 0; overflow: hidden; }
-.paper-fit { display: flex; justify-content: center; }
+.preview-wrap {
+  position: sticky; top: calc(var(--header-h, 77px) + 32px); min-width: 0;
+  /* Desktop: Vorschau füllt die sichtbare Höhe → ganze Seite ohne Scrollen */
+  height: calc(100dvh - var(--header-h, 77px) - 64px);
+  min-height: 420px;
+}
+.paper-fit {
+  position: relative; height: 100%; min-width: 0;
+  display: flex; align-items: flex-start;
+  padding: 16px; overflow: hidden;
+  background: var(--surface-sunken); border: 1px solid var(--border); border-radius: var(--radius-lg);
+}
+.paper-fit.is-zoomed { overflow: auto; overscroll-behavior: contain; }
+.paper-fit .paper { margin: 0 auto; }
+
+/* Zoom-Steuerung rechts an der Vorschau */
+.zoom {
+  position: absolute; right: 16px; top: 50%; translate: 0 -50%; z-index: 5;
+  display: flex; flex-direction: column; align-items: stretch;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.zoom-btn, .zoom-level {
+  display: grid; place-items: center; min-width: 52px; height: 40px; padding: 0 6px;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--gray-700);
+  background: none; border: 0; cursor: pointer;
+}
+.zoom-btn .icon { width: 18px; height: 18px; }
+.zoom-level { font-family: var(--mono); font-size: 11px; border-block: 1px solid var(--border); color: var(--text-secondary); }
+.zoom-level.is-fit { color: var(--primary); }
+.zoom-btn:hover:not(:disabled), .zoom-level:hover { background: var(--gray-50); color: var(--text); }
+.zoom-btn:disabled { color: var(--border-strong); cursor: default; }
 .paper {
   --paper-zoom: 1;
   zoom: var(--paper-zoom);
@@ -343,7 +372,9 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .layout { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 0; }
   .layout[data-view="edit"] .preview-wrap { display: none; }
   .layout[data-view="preview"] .editor { display: none; }
-  .preview-wrap { position: static; }
+  .preview-wrap { position: static; height: auto; min-height: 0; }
+  .paper-fit { height: auto; padding: 0; background: none; border: 0; border-radius: 0; overflow: hidden; }
+  .zoom { display: none; }
 
   .sumbar {
     position: relative; z-index: 30; flex: none;
@@ -431,7 +462,8 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .scroller { overflow: visible !important; height: auto !important; }
   .no-print, .sumbar { display: none !important; }
   .layout { display: block; padding: 0; margin: 0; max-width: none; }
-  .layout .preview-wrap { display: block !important; position: static; }
+  .layout .preview-wrap { display: block !important; position: static; height: auto !important; }
+  .paper-fit { display: block !important; height: auto !important; padding: 0 !important; background: none !important; border: 0 !important; overflow: visible !important; }
   .paper { zoom: 1 !important; box-shadow: none; border-radius: 0; width: 210mm; height: 297mm; min-height: 0; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
