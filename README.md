@@ -10,6 +10,8 @@ Rechnungen direkt im Browser erstellen – mit Live-Vorschau im A4-Format, korre
 
 ## Funktionen
 
+- **Pflichtangaben-Check** mit Fortschrittsanzeige – zeigt sofort, was für eine gültige Rechnung noch fehlt
+- **Mobil optimiert**: Umschalter Bearbeiten/Vorschau, Summenleiste mit Live-Betrag und PDF-Button, Positionen als gestapelte Karten, A4-Blatt skaliert automatisch
 - **Live-Vorschau** der Rechnung im A4-Layout (inkl. Anschriftenfeld und Fußzeile)
 - **Umsatzsteuer** mit 19 %, 7 % und 0 % – auch gemischt in einer Rechnung, getrennt ausgewiesen
 - **Kleinunternehmerregelung** (§ 19 UStG) per Schalter, inkl. Pflichthinweis
@@ -29,6 +31,8 @@ Rechnungen direkt im Browser erstellen – mit Live-Vorschau im A4-Format, korre
 | Architektur | Rechenlogik (`js/invoice.js`) ist vom DOM getrennt und vollständig unit-getestet |
 | Sicherheit | Vorschau wird ausschließlich mit `textContent` aufgebaut (kein `innerHTML` mit Nutzerdaten) |
 | Tests | 12 Unit-Tests mit `node:test` (Zahlenformate, Rundung, Steuersätze, IBAN, Datumsgrenzen) |
+| Design | Tokens angelehnt an **Untitled UI** (Teal), SVG-Icons, Schriften **lokal gehostet** (DSGVO – kein Google-Fonts-Abruf) |
+| Responsive | Breakpoints bei 1100 px und 640 px, `safe-area-insets`, 16-px-Eingaben gegen iOS-Auto-Zoom |
 | CI/CD | GitHub Actions führt die Tests bei jedem Push aus; Deployment über GitHub Pages |
 
 ```

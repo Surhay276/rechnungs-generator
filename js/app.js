@@ -130,17 +130,18 @@ $('#new-btn').addEventListener('click', () => {
   update();
 });
 
-$('#print-btn').addEventListener('click', () => {
+function exportPdf() {
   const errors = validateInvoice(invoice);
   if (errors.length && !confirmPrint(errors)) return;
   const previousTitle = document.title;
   document.title = `${invoice.number || 'Rechnung'} ${invoice.recipient.name || ''}`.trim(); // Dateiname im PDF-Dialog
   window.print();
   document.title = previousTitle;
-});
+}
+$('#print-btn').addEventListener('click', exportPdf);
+$('#print-btn-mobile').addEventListener('click', exportPdf);
 
 function confirmPrint(errors) {
-  $('#errors').scrollIntoView({ behavior: 'smooth', block: 'center' });
   return window.confirm(`Die Rechnung ist unvollständig (${errors.length} Hinweis${errors.length > 1 ? 'e' : ''}). Trotzdem exportieren?`);
 }
 
@@ -189,7 +190,7 @@ function renderPreview(totals) {
       el('div', { className: 'inv-title' },
         el('h2', { textContent: 'Rechnung' }),
         el('dl', {},
-          el('dt', { textContent: 'Nr.' }), el('dd', { textContent: invoice.number || '—' }),
+          el('dt', { textContent: 'Nr.' }), el('dd', { className: 'mono', textContent: invoice.number || '—' }),
           el('dt', { textContent: 'Datum' }), el('dd', { textContent: formatDate(invoice.date) || '—' }),
           invoice.serviceDate && el('dt', { textContent: 'Leistung' }),
           invoice.serviceDate && el('dd', { textContent: invoice.serviceDate })))),
@@ -217,15 +218,61 @@ function renderPreview(totals) {
   ].filter(present));
 }
 
-function renderErrors(errors) {
-  $('#errors').replaceChildren(...errors.map((msg) => el('li', { textContent: msg })));
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function icon(name) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+  const use = document.createElementNS(SVG_NS, 'use');
+  use.setAttribute('href', `#i-${name}`);
+  svg.append(use);
+  return svg;
 }
+
+/** Signatur-Element: Pflichtangaben-Check (vereinfacht nach § 14 Abs. 4 UStG). */
+const CHECK_TOTAL = 8; // Steller, Anschrift, Steuernr., Empfänger, Anschrift, Nummer, Datum, Positionen
+function renderCheck(errors) {
+  const box = $('#check');
+  const ok = errors.length === 0;
+  const done = Math.max(0, CHECK_TOTAL - errors.length);
+  box.className = `check${ok ? ' ok' : ''}`;
+  box.replaceChildren(
+    icon(ok ? 'check' : 'alert'),
+    el('div', {},
+      el('strong', { textContent: ok ? 'Alle Pflichtangaben vorhanden' : `${errors.length} ${errors.length === 1 ? 'Angabe fehlt' : 'Angaben fehlen'} noch` }),
+      ok
+        ? el('p', { textContent: 'Die Rechnung kann als PDF gespeichert werden.' })
+        : el('ul', {}, ...errors.map((msg) => el('li', { textContent: msg }))),
+      el('div', { className: 'check-meter', ariaHidden: 'true' },
+        ...Array.from({ length: CHECK_TOTAL }, (_, i) => el('span', { className: i < done ? 'on' : '' })))),
+  );
+}
+
+// ---------- Ansicht (mobil: Bearbeiten / Vorschau) ----------
+const layout = $('.layout');
+document.querySelectorAll('.view-switch .tab').forEach((tab) => {
+  tab.addEventListener('click', () => {
+    layout.dataset.view = tab.dataset.view;
+    document.querySelectorAll('.view-switch .tab').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
+    fitPaper();
+    window.scrollTo({ top: 0 });
+  });
+});
+
+/** Skaliert das A4-Blatt auf die verfügbare Breite (mobil/Tablet). */
+function fitPaper() {
+  const available = preview.parentElement.clientWidth;
+  const paperWidth = 794; // 210 mm bei 96 dpi
+  preview.style.setProperty('--paper-zoom', available > 0 ? Math.min(1, available / paperWidth).toFixed(3) : 1);
+}
+new ResizeObserver(fitPaper).observe(preview.parentElement);
 
 function update() {
   let totals = null;
   try { totals = calculateTotals(invoice.items, { kleinunternehmer: invoice.kleinunternehmer }); } catch { /* ungültige Eingabe */ }
   renderPreview(totals);
-  renderErrors(validateInvoice(invoice));
+  renderCheck(validateInvoice(invoice));
+  $('#sumbar-total').textContent = totals ? formatEUR(totals.gross) : '–';
   save();
 }
 

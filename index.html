@@ -2,99 +2,135 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Surhay Yilmaz</title>
-  <meta name="description" content="Rechnungen im Browser erstellen: Live-Vorschau, Umsatzsteuer 19 %/7 %, Kleinunternehmerregelung und PDF-Export.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧾</text></svg>">
+  <meta name="description" content="Rechnungen im Browser erstellen: Live-Vorschau, Umsatzsteuer 19 %/7 %, Kleinunternehmerregelung, Pflichtangaben-Check und PDF-Export.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
+  <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
-  <header class="topbar no-print">
+  <svg width="0" height="0" class="sprite" aria-hidden="true">
+    <defs>
+      <symbol id="i-receipt" viewBox="0 0 24 24"><path d="M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z"/><path d="M8 8h8M8 12h8M8 16h5"/></symbol>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></symbol>
+      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
+    </defs>
+  </svg>
+
+  <header class="app-header no-print">
     <div class="brand">
-      <span class="logo" aria-hidden="true">🧾</span>
+      <span class="brand-mark"><svg class="icon"><use href="#i-receipt"/></svg></span>
       <div>
         <h1>Rechnungsgenerator</h1>
-        <p class="subtitle">Live-Vorschau · USt 19 % / 7 % · § 19 UStG · PDF-Export</p>
+        <p class="brand-sub">Rechnung ausfüllen, prüfen, als PDF speichern</p>
       </div>
     </div>
-    <div class="actions">
-      <button id="sample-btn" class="btn ghost" type="button">Beispiel laden</button>
-      <button id="new-btn" class="btn" type="button">Neue Rechnung</button>
-      <button id="print-btn" class="btn primary" type="button">⬇ Als PDF speichern</button>
+    <div class="header-actions">
+      <button id="sample-btn" class="btn btn-ghost" type="button"><svg class="icon"><use href="#i-sparkle"/></svg><span>Beispiel laden</span></button>
+      <button id="new-btn" class="btn btn-secondary" type="button"><svg class="icon"><use href="#i-file"/></svg><span>Neue Rechnung</span></button>
+      <button id="print-btn" class="btn btn-primary hide-mobile" type="button"><svg class="icon"><use href="#i-download"/></svg>Als PDF speichern</button>
     </div>
   </header>
 
-  <main class="layout">
+  <div class="view-switch no-print" role="tablist" aria-label="Ansicht">
+    <button type="button" role="tab" class="tab" data-view="edit" aria-selected="true"><svg class="icon"><use href="#i-edit"/></svg>Bearbeiten</button>
+    <button type="button" role="tab" class="tab" data-view="preview" aria-selected="false"><svg class="icon"><use href="#i-eye"/></svg>Vorschau</button>
+  </div>
+
+  <main class="layout" data-view="edit">
     <form id="invoice-form" class="editor no-print" novalidate autocomplete="off">
-      <fieldset>
+      <section id="check" class="check" aria-live="polite"></section>
+
+      <fieldset class="card">
         <legend>Rechnungssteller</legend>
-        <label>Name / Firma <input data-field="sender.name"></label>
-        <label>Anschrift <textarea data-field="sender.address" rows="2"></textarea></label>
+        <label class="field"><span class="field-label">Name / Firma</span><input class="input" data-field="sender.name" autocomplete="organization"></label>
+        <label class="field"><span class="field-label">Anschrift</span><textarea class="input" data-field="sender.address" rows="2" autocomplete="street-address"></textarea></label>
         <div class="grid-2">
-          <label>Steuernr. / USt-IdNr. <input data-field="sender.taxId"></label>
-          <label>E-Mail <input data-field="sender.email" type="email"></label>
-          <label>IBAN <input data-field="sender.iban" spellcheck="false"></label>
-          <label>Bank <input data-field="sender.bank"></label>
+          <label class="field"><span class="field-label">Steuernr. / USt-IdNr.</span><input class="input" data-field="sender.taxId"></label>
+          <label class="field"><span class="field-label">E-Mail</span><input class="input" data-field="sender.email" type="email" inputmode="email"></label>
+          <label class="field"><span class="field-label">IBAN</span><input class="input mono" data-field="sender.iban" spellcheck="false" autocapitalize="characters"></label>
+          <label class="field"><span class="field-label">Bank</span><input class="input" data-field="sender.bank"></label>
         </div>
-        <label class="check"><input type="checkbox" data-field="kleinunternehmer"> Kleinunternehmer (§ 19 UStG – keine Umsatzsteuer)</label>
+        <label class="toggle">
+          <input type="checkbox" role="switch" data-field="kleinunternehmer">
+          <span class="toggle-track" aria-hidden="true"></span>
+          <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – es wird keine Umsatzsteuer ausgewiesen</small></span>
+        </label>
       </fieldset>
 
-      <fieldset>
+      <fieldset class="card">
         <legend>Empfänger</legend>
-        <label>Name / Firma <input data-field="recipient.name"></label>
-        <label>Anschrift <textarea data-field="recipient.address" rows="2"></textarea></label>
+        <label class="field"><span class="field-label">Name / Firma</span><input class="input" data-field="recipient.name"></label>
+        <label class="field"><span class="field-label">Anschrift</span><textarea class="input" data-field="recipient.address" rows="2"></textarea></label>
       </fieldset>
 
-      <fieldset>
+      <fieldset class="card">
         <legend>Rechnungsdaten</legend>
         <div class="grid-2">
-          <label>Rechnungsnummer <input data-field="number"></label>
-          <label>Rechnungsdatum <input data-field="date" type="date"></label>
-          <label>Leistungsdatum / -zeitraum <input data-field="serviceDate" placeholder="z. B. November 2026"></label>
-          <label>Zahlungsziel (Tage) <input data-field="paymentDays" type="number" min="0" max="120"></label>
+          <label class="field"><span class="field-label">Rechnungsnummer</span><input class="input mono" data-field="number"></label>
+          <label class="field"><span class="field-label">Rechnungsdatum</span><input class="input" data-field="date" type="date"></label>
+          <label class="field"><span class="field-label">Leistungszeitraum</span><input class="input" data-field="serviceDate" placeholder="z. B. November 2026"></label>
+          <label class="field"><span class="field-label">Zahlungsziel in Tagen</span><input class="input" data-field="paymentDays" type="number" inputmode="numeric" min="0" max="120"></label>
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset class="card">
         <legend>Positionen</legend>
         <div class="items-head" aria-hidden="true">
-          <span>Beschreibung</span><span>Menge</span><span>Einheit</span><span>Einzelpreis €</span><span>USt</span><span></span>
+          <span>Beschreibung</span><span>Menge</span><span>Einheit</span><span>Preis netto</span><span>USt</span><span></span>
         </div>
-        <div id="items"></div>
-        <button id="add-item-btn" class="btn" type="button">+ Position hinzufügen</button>
+        <div id="items" class="items"></div>
+        <button id="add-item-btn" class="btn btn-secondary" type="button"><svg class="icon"><use href="#i-plus"/></svg>Position hinzufügen</button>
       </fieldset>
 
-      <fieldset>
-        <legend>Hinweis</legend>
-        <textarea data-field="note" rows="2" placeholder="z. B. Vielen Dank für Ihren Auftrag!"></textarea>
+      <fieldset class="card">
+        <legend>Hinweis auf der Rechnung</legend>
+        <textarea class="input" data-field="note" rows="2" placeholder="z. B. Vielen Dank für Ihren Auftrag!" aria-label="Hinweis auf der Rechnung"></textarea>
       </fieldset>
-
-      <ul id="errors" class="errors" aria-live="polite"></ul>
     </form>
 
-    <section class="preview-wrap" aria-label="Vorschau">
-      <article id="preview" class="paper"></article>
+    <section class="preview-wrap" aria-label="Vorschau der Rechnung">
+      <div class="paper-fit"><article id="preview" class="paper"></article></div>
     </section>
   </main>
+
+  <div class="sumbar no-print">
+    <div>
+      <span class="sumbar-label">Rechnungsbetrag</span>
+      <strong id="sumbar-total" class="sumbar-total">0,00 €</strong>
+    </div>
+    <button id="print-btn-mobile" class="btn btn-primary" type="button"><svg class="icon"><use href="#i-download"/></svg>PDF speichern</button>
+  </div>
 
   <footer class="footer no-print">
     Gebaut von <a href="https://github.com/Surhay276">Surhay Yilmaz</a> ·
     <a href="https://github.com/Surhay276/rechnungs-generator">Quellcode auf GitHub</a> ·
-    Alle Daten bleiben lokal im Browser.
+    Alle Daten bleiben lokal in deinem Browser.
   </footer>
 
   <template id="item-template">
     <div class="item-row">
-      <input data-key="description" aria-label="Beschreibung" placeholder="Leistung">
-      <input data-key="quantity" aria-label="Menge" inputmode="decimal">
-      <input data-key="unit" aria-label="Einheit" placeholder="Std.">
-      <input data-key="unitPrice" aria-label="Einzelpreis netto" inputmode="decimal">
-      <select data-key="taxRate" aria-label="Umsatzsteuersatz">
-        <option value="19">19 %</option>
-        <option value="7">7 %</option>
-        <option value="0">0 %</option>
-      </select>
-      <button type="button" class="icon-btn" data-action="remove" aria-label="Position entfernen" title="Entfernen">✕</button>
+      <label class="f-desc"><span>Beschreibung</span><input class="input" data-key="description" placeholder="Leistung"></label>
+      <label class="f-qty"><span>Menge</span><input class="input mono" data-key="quantity" inputmode="decimal"></label>
+      <label class="f-unit"><span>Einheit</span><input class="input" data-key="unit" placeholder="Std."></label>
+      <label class="f-price"><span>Preis netto €</span><input class="input mono" data-key="unitPrice" inputmode="decimal"></label>
+      <label class="f-tax"><span>USt</span>
+        <select class="input" data-key="taxRate">
+          <option value="19">19 %</option>
+          <option value="7">7 %</option>
+          <option value="0">0 %</option>
+        </select>
+      </label>
+      <button type="button" class="icon-btn" data-action="remove" aria-label="Position entfernen" title="Position entfernen"><svg class="icon"><use href="#i-trash"/></svg></button>
     </div>
   </template>
 
