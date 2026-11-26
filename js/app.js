@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=5';
+} from './invoice.js?v=6';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -300,6 +300,8 @@ document.querySelectorAll('.view-switch .tab').forEach((tab) => {
     layout.dataset.view = tab.dataset.view;
     document.querySelectorAll('.view-switch .tab').forEach((t) => t.setAttribute('aria-selected', String(t === tab)));
     fitPaper();
+    // mobil scrollt nur der Inhaltsbereich, am Desktop die Seite
+    $('#scroller').scrollTo({ top: 0 });
     window.scrollTo({ top: 0 });
   });
 });

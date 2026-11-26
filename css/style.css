@@ -308,6 +308,15 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
    Tablet & Mobil: Bearbeiten/Vorschau umschalten, Summenleiste unten
    ========================================================================== */
 @media (max-width: 1100px) {
+  /* App-Layout: Nur der Inhalt scrollt, die Seite selbst nicht. So blendet der mobile Browser
+     seine Adressleiste beim Scrollen nicht ein/aus und die Summenleiste unten wackelt nicht. */
+  html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; height: 100dvh; }
+  .scroller {
+    flex: 1; min-height: 0;
+    overflow-y: auto; overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
   .app-header { padding: 12px 20px; position: static; }
   .hide-mobile { display: none; }
 
@@ -337,16 +346,17 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .preview-wrap { position: static; }
 
   .sumbar {
-    position: fixed; z-index: 30; left: 0; right: 0; bottom: 0;
+    position: relative; z-index: 30; flex: none;
     display: flex; align-items: center; justify-content: space-between; gap: 16px;
     padding: 12px 20px calc(12px + env(safe-area-inset-bottom));
     background: var(--surface);
     border-top: 1px solid var(--border);
     box-shadow: 0 -8px 16px -4px rgb(16 24 40 / .06);
   }
+  .sumbar-total { min-width: 0; }
   .sumbar-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
-  .sumbar-total { font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
-  .footer { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .sumbar-total { display: block; font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .footer { padding-bottom: 24px; }
   .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
 }
 
@@ -417,7 +427,8 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 /* ---------- Druck / PDF ---------- */
 @page { size: A4; margin: 0; }
 @media print {
-  body { background: #fff; }
+  html, body { height: auto !important; overflow: visible !important; display: block !important; background: #fff; }
+  .scroller { overflow: visible !important; height: auto !important; }
   .no-print, .sumbar { display: none !important; }
   .layout { display: block; padding: 0; margin: 0; max-width: none; }
   .layout .preview-wrap { display: block !important; position: static; }
