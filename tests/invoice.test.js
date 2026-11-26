@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   toCents, toQuantity, lineNet, calculateTotals, nextInvoiceNumber,
-  addDays, isValidIBAN, formatIBAN, formatEUR, validateInvoice,
+  addDays, isValidIBAN, formatIBAN, formatEUR, validateInvoice, validateInvoiceFields,
 } from '../js/invoice.js';
 
 test('toCents versteht deutsches und englisches Zahlenformat', () => {
@@ -92,4 +92,14 @@ test('validateInvoice meldet fehlende Pflichtangaben', () => {
     items: [{ description: 'Webdesign', quantity: 1, unitPrice: '100' }],
   });
   assert.deepEqual(ok, []);
+});
+
+test('validateInvoiceFields nennt das betroffene Feld, damit die UI es markieren kann', () => {
+  const fields = validateInvoiceFields({
+    sender: { name: 'A', address: 'B', taxId: '1' },
+    recipient: { name: '', address: 'D' },
+    number: 'RE-1', date: '2026-11-26',
+    items: [{ description: 'X', quantity: '1', unitPrice: '' }],
+  }).map((e) => e.field);
+  assert.deepEqual(fields, ['recipient.name', 'items.0.unitPrice']);
 });

@@ -8,7 +8,7 @@
   <meta name="description" content="Rechnungen im Browser erstellen: Live-Vorschau, Umsatzsteuer 19 %/7 %, Kleinunternehmerregelung, Pflichtangaben-Check und PDF-Export.">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=3">
+  <link rel="stylesheet" href="css/style.css?v=4">
 </head>
 <body>
   <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -17,7 +17,6 @@
       <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></symbol>
-      <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/></symbol>
       <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m8 12 3 3 5-6"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></symbol>
@@ -35,7 +34,6 @@
       </div>
     </div>
     <div class="header-actions">
-      <button id="sample-btn" class="btn btn-ghost" type="button"><svg class="icon"><use href="#i-sparkle"/></svg><span>Beispiel laden</span></button>
       <button id="new-btn" class="btn btn-secondary" type="button"><svg class="icon"><use href="#i-file"/></svg><span>Neue Rechnung</span></button>
       <button id="print-btn" class="btn btn-primary hide-mobile" type="button"><svg class="icon"><use href="#i-download"/></svg>Als PDF speichern</button>
     </div>
@@ -48,8 +46,6 @@
 
   <main class="layout" data-view="edit">
     <form id="invoice-form" class="editor no-print" novalidate autocomplete="off">
-      <section id="check" class="check" aria-live="polite"></section>
-
       <fieldset class="card">
         <legend>Rechnungssteller</legend>
         <label class="field"><span class="field-label">Name / Firma</span><input class="input" data-field="sender.name" autocomplete="organization"></label>
@@ -84,6 +80,14 @@
       </fieldset>
 
       <fieldset class="card">
+        <legend>Vortext</legend>
+        <label class="field">
+          <span class="field-hint">Steht vor den Positionen – z. B. Anrede und Einleitung.</span>
+          <textarea class="input" data-field="intro" rows="3" placeholder="Sehr geehrte Damen und Herren, …" aria-label="Vortext"></textarea>
+        </label>
+      </fieldset>
+
+      <fieldset class="card">
         <legend>Positionen</legend>
         <div class="items-head" aria-hidden="true">
           <span>Beschreibung</span><span>Menge</span><span>Einheit</span><span>Preis netto</span><span>USt</span><span></span>
@@ -93,8 +97,11 @@
       </fieldset>
 
       <fieldset class="card">
-        <legend>Hinweis auf der Rechnung</legend>
-        <textarea class="input" data-field="note" rows="2" placeholder="z. B. Vielen Dank für Ihren Auftrag!" aria-label="Hinweis auf der Rechnung"></textarea>
+        <legend>Schlusstext</legend>
+        <label class="field">
+          <span class="field-hint">Steht nach dem Zahlungshinweis – z. B. Dank und Grußformel.</span>
+          <textarea class="input" data-field="note" rows="3" placeholder="Vielen Dank für Ihren Auftrag!" aria-label="Schlusstext"></textarea>
+        </label>
       </fieldset>
     </form>
 
@@ -103,12 +110,14 @@
     </section>
   </main>
 
+  <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
+
   <div class="sumbar no-print">
     <div>
       <span class="sumbar-label">Rechnungsbetrag</span>
       <strong id="sumbar-total" class="sumbar-total">0,00 €</strong>
     </div>
-    <button id="print-btn-mobile" class="btn btn-primary" type="button"><svg class="icon"><use href="#i-download"/></svg>PDF speichern</button>
+    <button id="print-btn-mobile" class="btn btn-primary" type="button"><svg class="icon"><use href="#i-download"/></svg><span>PDF speichern</span></button>
   </div>
 
   <footer class="footer no-print">
@@ -134,6 +143,6 @@
     </div>
   </template>
 
-  <script type="module" src="js/app.js?v=3"></script>
+  <script type="module" src="js/app.js?v=4"></script>
 </body>
 </html>

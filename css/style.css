@@ -219,25 +219,34 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 .item-row .input { padding: 8px 10px; }
 #add-item-btn { align-self: flex-start; }
 
-/* Signatur: Pflichtangaben-Check nach § 14 UStG */
-.check {
-  display: flex; gap: 12px; align-items: flex-start;
-  padding: 16px;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--warning-border);
-  background: var(--warning-bg);
-  color: var(--warning-fg);
-  font-size: 14px;
+/* Pflichtfelder: Fehler direkt am Feld */
+.field-hint { font-size: 14px; color: var(--text-tertiary); }
+.field-error {
+  display: flex; gap: 6px; align-items: flex-start;
+  margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--error-fg);
 }
-.check.ok { border-color: var(--success-border); background: var(--success-bg); color: var(--success-fg); }
-.check .icon { margin-top: 1px; }
-.check strong { display: block; font-weight: 600; }
-.check p { color: inherit; opacity: .9; }
-.check ul { margin: 6px 0 0; padding-left: 18px; }
-.check li + li { margin-top: 2px; }
-.check-meter { display: flex; gap: 3px; margin-top: 8px; }
-.check-meter span { width: 22px; height: 6px; border-radius: 99px; background: color-mix(in srgb, currentColor 22%, transparent); }
-.check-meter span.on { background: currentColor; }
+.field-error::before {
+  content: "!"; flex: none; display: grid; place-items: center;
+  width: 16px; height: 16px; margin-top: 1px; border-radius: 50%;
+  font-size: 11px; font-weight: 700; color: #fff; background: #F04438;
+}
+.input[aria-invalid="true"] { border-color: #FDA29B; background: #FFFBFA; }
+.input[aria-invalid="true"]:focus-visible { border-color: #F04438; box-shadow: var(--shadow-xs), 0 0 0 4px #FEE4E2; }
+.btn.is-invalid { border-color: #FDA29B; color: var(--error-fg); box-shadow: 0 0 0 4px #FEE4E2; }
+.item-row label > .field-error { position: static; width: auto; height: auto; clip-path: none; }
+
+/* Toast */
+.toast {
+  position: fixed; z-index: 50; left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  translate: -50% 16px; opacity: 0; pointer-events: none;
+  width: max-content; max-width: calc(100vw - 32px);
+  padding: 10px 16px; border-radius: var(--radius-md);
+  font-size: 14px; font-weight: 500; color: #fff; background: var(--gray-900);
+  box-shadow: var(--shadow-lg);
+  transition: translate .25s var(--ease), opacity .25s;
+}
+.toast.show { translate: -50% 0; opacity: 1; }
 
 /* ---------- Vorschau (A4) ---------- */
 .preview-wrap { position: sticky; top: 108px; min-width: 0; }
@@ -268,7 +277,10 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 .inv-title dd { margin: 0; font-weight: 600; }
 .inv-title dd.mono, .inv-items .num, .inv-sum .num { font-family: var(--mono); font-size: 9pt !important; }
 .inv-return { margin-top: 14mm; font-size: 7pt; color: #777; border-bottom: 1px solid #ccc; align-self: flex-start; padding-bottom: 1px; }
-.inv-recipient { margin: .4rem 0 12mm; min-height: 22mm; }
+.inv-recipient { margin: .4rem 0 10mm; min-height: 22mm; }
+.inv-subject { font-size: 12pt; font-weight: 700; margin: 0 0 4mm; }
+.inv-intro { white-space: pre-line; margin-bottom: 5mm; }
+.inv-note { white-space: pre-line; }
 .paper table { width: 100%; border-collapse: collapse; }
 .num { text-align: right; white-space: nowrap; }
 .inv-items th { text-align: left; font-size: 8.5pt; font-weight: 600; color: #555; border-bottom: 2px solid var(--primary); padding: .35rem .3rem; }
@@ -335,12 +347,14 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .sumbar-label { display: block; font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
   .sumbar-total { font-family: var(--mono); font-size: 20px; font-weight: 500; font-variant-numeric: tabular-nums; }
   .footer { padding-bottom: calc(96px + env(safe-area-inset-bottom)); }
+  .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
 }
 
 @media (max-width: 640px) {
   .app-header { padding: 12px 16px; }
   .brand-sub { display: none; }
-  .header-actions { width: 100%; display: grid; grid-template-columns: 1fr 1fr; }
+  .header-actions { width: 100%; }
+  .header-actions .btn { flex: 1; }
   .view-switch { padding: 8px 16px; }
   .layout { padding: 16px; }
   .card { padding: 16px; }
@@ -370,6 +384,33 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .f-tax { grid-area: tax; }
   .item-row [data-action="remove"] { grid-area: del; align-self: end; justify-self: end; }
   #add-item-btn { align-self: stretch; }
+}
+
+/* Sehr schmale Displays (z. B. Galaxy Z Fold, Außendisplay ≈ 280 px) */
+@media (max-width: 360px) {
+  .app-header { padding: 10px 12px; gap: 10px; }
+  .brand-mark { width: 36px; height: 36px; }
+  .brand-mark .icon { width: 20px; height: 20px; }
+  h1 { font-size: 16px; }
+  .view-switch { padding: 8px 12px; }
+  .tab { font-size: 13px; gap: 6px; }
+  .layout { padding: 12px; }
+  .editor { gap: 12px; }
+  .card { padding: 14px 12px; gap: 14px; }
+  .item-row {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) var(--tap);
+    grid-template-areas:
+      "desc desc del"
+      "qty unit unit"
+      "price tax tax";
+    padding: 10px;
+  }
+  .toggle small { font-size: 13px; }
+  .sumbar { padding: 10px 12px calc(10px + env(safe-area-inset-bottom)); gap: 10px; }
+  .sumbar-total { font-size: 17px; }
+  .sumbar .btn { padding: 0 12px; }
+  .sumbar .btn .icon { display: none; }
+  .footer { padding-left: 12px; padding-right: 12px; }
 }
 
 /* ---------- Druck / PDF ---------- */

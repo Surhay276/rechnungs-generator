@@ -93,26 +93,41 @@ export function isValidIBAN(input) {
 
 export const formatIBAN = (iban) => String(iban ?? '').replace(/\s/g, '').toUpperCase().replace(/(.{4})/g, '$1 ').trim();
 
-/** Prüft eine Rechnung auf Pflichtangaben (vereinfacht nach § 14 Abs. 4 UStG). Liefert Fehlerliste. */
-export function validateInvoice(inv) {
+/**
+ * Prüft eine Rechnung auf Pflichtangaben (vereinfacht nach § 14 Abs. 4 UStG).
+ * Liefert je Fehler das betroffene Feld (Pfad wie "sender.name" oder "items.0.unitPrice"),
+ * damit die Oberfläche genau dieses Feld markieren und dorthin springen kann.
+ */
+export function validateInvoiceFields(inv) {
   const errors = [];
-  if (!inv.sender?.name?.trim()) errors.push('Name des Rechnungsstellers fehlt.');
-  if (!inv.sender?.address?.trim()) errors.push('Anschrift des Rechnungsstellers fehlt.');
-  if (!inv.sender?.taxId?.trim()) errors.push('Steuernummer oder USt-IdNr. fehlt.');
-  if (!inv.recipient?.name?.trim()) errors.push('Name des Empfängers fehlt.');
-  if (!inv.recipient?.address?.trim()) errors.push('Anschrift des Empfängers fehlt.');
-  if (!inv.number?.trim()) errors.push('Rechnungsnummer fehlt.');
-  if (!inv.date) errors.push('Rechnungsdatum fehlt.');
-  if (!inv.items?.length) errors.push('Mindestens eine Position ist erforderlich.');
+  const require = (field, value, message) => { if (!String(value ?? '').trim()) errors.push({ field, message }); };
+  require('sender.name', inv.sender?.name, 'Bitte Name oder Firma des Rechnungsstellers angeben.');
+  require('sender.address', inv.sender?.address, 'Bitte die Anschrift des Rechnungsstellers angeben.');
+  require('sender.taxId', inv.sender?.taxId, 'Bitte Steuernummer oder USt-IdNr. angeben.');
+  if (inv.sender?.iban && !isValidIBAN(inv.sender.iban)) {
+    errors.push({ field: 'sender.iban', message: 'Diese IBAN ist ungültig – bitte prüfen (Prüfsumme stimmt nicht).' });
+  }
+  require('recipient.name', inv.recipient?.name, 'Bitte Name oder Firma des Empfängers angeben.');
+  require('recipient.address', inv.recipient?.address, 'Bitte die Anschrift des Empfängers angeben.');
+  require('number', inv.number, 'Bitte eine Rechnungsnummer angeben.');
+  require('date', inv.date, 'Bitte das Rechnungsdatum angeben.');
+  if (!inv.items?.length) errors.push({ field: 'items', message: 'Bitte mindestens eine Position hinzufügen.' });
   inv.items?.forEach((item, i) => {
-    if (!item.description?.trim()) errors.push(`Position ${i + 1}: Beschreibung fehlt.`);
+    require(`items.${i}.description`, item.description, `Position ${i + 1}: Beschreibung fehlt.`);
     try {
-      if (toQuantity(item.quantity) === 0) errors.push(`Position ${i + 1}: Menge muss größer 0 sein.`);
+      if (toQuantity(item.quantity) === 0) errors.push({ field: `items.${i}.quantity`, message: `Position ${i + 1}: Menge muss größer 0 sein.` });
+    } catch {
+      errors.push({ field: `items.${i}.quantity`, message: `Position ${i + 1}: Menge ist keine gültige Zahl.` });
+    }
+    try {
       toCents(item.unitPrice);
-    } catch (e) {
-      errors.push(`Position ${i + 1}: ${e.message}`);
+      if (String(item.unitPrice ?? '').trim() === '') errors.push({ field: `items.${i}.unitPrice`, message: `Position ${i + 1}: Preis fehlt.` });
+    } catch {
+      errors.push({ field: `items.${i}.unitPrice`, message: `Position ${i + 1}: Preis ist kein gültiger Betrag.` });
     }
   });
-  if (inv.sender?.iban && !isValidIBAN(inv.sender.iban)) errors.push('Die IBAN ist ungültig (Prüfsumme).');
   return errors;
 }
+
+/** Kurzform: nur die Fehlermeldungen. */
+export const validateInvoice = (inv) => validateInvoiceFields(inv).map((e) => e.message);

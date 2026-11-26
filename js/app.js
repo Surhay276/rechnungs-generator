@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
-  formatIBAN, validateInvoice, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=3';
+  formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
+} from './invoice.js?v=4';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -33,7 +33,8 @@ function sampleInvoice() {
     serviceDate: new Intl.DateTimeFormat('de-DE', { month: 'long', year: 'numeric' }).format(new Date()),
     paymentDays: 14,
     kleinunternehmer: false,
-    note: 'Vielen Dank für Ihren Auftrag!',
+    intro: 'Sehr geehrte Damen und Herren,\n\nvielen Dank für Ihren Auftrag. Für die erbrachten Leistungen stelle ich Ihnen Folgendes in Rechnung:',
+    note: 'Ich freue mich auf die weitere Zusammenarbeit.\n\nMit freundlichen Grüßen\nMax Mustermann',
     items: [
       { description: 'Konzeption & Design OnePager', quantity: '1', unit: 'Pausch.', unitPrice: '850,00', taxRate: 19 },
       { description: 'Umsetzung & Responsive-Optimierung', quantity: '6,5', unit: 'Std.', unitPrice: '65,00', taxRate: 19 },
@@ -98,8 +99,9 @@ form.addEventListener('input', (e) => {
 });
 
 itemsBox.addEventListener('click', (e) => {
-  if (e.target.dataset.action !== 'remove') return;
-  invoice.items.splice(Number(e.target.closest('.item-row').dataset.index), 1);
+  const button = e.target.closest('[data-action="remove"]'); // Klick kann auf dem Icon landen
+  if (!button) return;
+  invoice.items.splice(Number(button.closest('.item-row').dataset.index), 1);
   renderItems();
   update();
 });
@@ -108,12 +110,6 @@ $('#add-item-btn').addEventListener('click', () => {
   invoice.items.push(emptyItem());
   renderItems();
   itemsBox.lastElementChild.querySelector('input').focus();
-  update();
-});
-
-$('#sample-btn').addEventListener('click', () => {
-  invoice = sampleInvoice();
-  fillForm();
   update();
 });
 
@@ -126,13 +122,22 @@ $('#new-btn').addEventListener('click', () => {
     serviceDate: '',
     items: [emptyItem()],
   };
+  touched.clear();
+  showAllErrors = false;
   fillForm();
   update();
+  $('[data-field="recipient.name"]').focus();
 });
 
 function exportPdf() {
-  const errors = validateInvoice(invoice);
-  if (errors.length && !confirmPrint(errors)) return;
+  const errors = validateInvoiceFields(invoice);
+  if (errors.length) {
+    showAllErrors = true;
+    renderFieldErrors(errors);
+    goToField(errors[0].field);
+    toast(errors.length === 1 ? 'Ein Pflichtfeld fehlt noch – es ist rot markiert.' : `${errors.length} Pflichtfelder fehlen noch – sie sind rot markiert.`);
+    return;
+  }
   const previousTitle = document.title;
   document.title = `${invoice.number || 'Rechnung'} ${invoice.recipient.name || ''}`.trim(); // Dateiname im PDF-Dialog
   window.print();
@@ -141,9 +146,6 @@ function exportPdf() {
 $('#print-btn').addEventListener('click', exportPdf);
 $('#print-btn-mobile').addEventListener('click', exportPdf);
 
-function confirmPrint(errors) {
-  return window.confirm(`Die Rechnung ist unvollständig (${errors.length} Hinweis${errors.length > 1 ? 'e' : ''}). Trotzdem exportieren?`);
-}
 
 // ---------- Vorschau ----------
 const preview = $('#preview');
@@ -198,6 +200,8 @@ function renderPreview(totals) {
     el('div', { className: 'inv-recipient' },
       el('strong', { textContent: recipient.name || 'Empfänger' }),
       el('p', {}, ...multiline(recipient.address))),
+    el('h3', { className: 'inv-subject', textContent: `Rechnung ${invoice.number || ''}`.trim() }),
+    invoice.intro && el('p', { className: 'inv-intro', textContent: invoice.intro }),
     el('table', { className: 'inv-items' },
       el('thead', {}, el('tr', {},
         el('th', { textContent: 'Pos.' }), el('th', { textContent: 'Beschreibung' }),
@@ -229,23 +233,63 @@ function icon(name) {
   return svg;
 }
 
-/** Signatur-Element: Pflichtangaben-Check (vereinfacht nach § 14 Abs. 4 UStG). */
-const CHECK_TOTAL = 8; // Steller, Anschrift, Steuernr., Empfänger, Anschrift, Nummer, Datum, Positionen
-function renderCheck(errors) {
-  const box = $('#check');
-  const ok = errors.length === 0;
-  const done = Math.max(0, CHECK_TOTAL - errors.length);
-  box.className = `check${ok ? ' ok' : ''}`;
-  box.replaceChildren(
-    icon(ok ? 'check' : 'alert'),
-    el('div', {},
-      el('strong', { textContent: ok ? 'Alle Pflichtangaben vorhanden' : `${errors.length} ${errors.length === 1 ? 'Angabe fehlt' : 'Angaben fehlen'} noch` }),
-      ok
-        ? el('p', { textContent: 'Die Rechnung kann als PDF gespeichert werden.' })
-        : el('ul', {}, ...errors.map((msg) => el('li', { textContent: msg }))),
-      el('div', { className: 'check-meter', ariaHidden: 'true' },
-        ...Array.from({ length: CHECK_TOTAL }, (_, i) => el('span', { className: i < done ? 'on' : '' })))),
-  );
+// ---------- Pflichtfelder: rot markieren & hinführen ----------
+const touched = new Set();      // Felder, die der Nutzer schon verlassen hat
+let showAllErrors = false;      // nach Klick auf „PDF speichern“ alle Fehler zeigen
+
+const fieldKey = (input) => input.dataset.field
+  ?? `items.${input.closest('.item-row').dataset.index}.${input.dataset.key}`;
+const allInputs = () => form.querySelectorAll('[data-field], [data-key]');
+
+function renderFieldErrors(errors = validateInvoiceFields(invoice)) {
+  const byField = new Map(errors.map((e) => [e.field, e.message]));
+  for (const input of allInputs()) {
+    const key = fieldKey(input);
+    const message = (showAllErrors || touched.has(key)) ? byField.get(key) : undefined;
+    const container = input.closest('.field, label');
+    let hint = container.querySelector(':scope > .field-error');
+    if (message) {
+      if (!hint) {
+        hint = el('p', { className: 'field-error', id: `err-${key.replace(/\./g, '-')}` });
+        container.append(hint);
+      }
+      hint.textContent = message;
+      input.setAttribute('aria-invalid', 'true');
+      input.setAttribute('aria-describedby', hint.id);
+    } else {
+      hint?.remove();
+      input.removeAttribute('aria-invalid');
+      input.removeAttribute('aria-describedby');
+    }
+  }
+  const noItems = byField.get('items');
+  $('#add-item-btn').classList.toggle('is-invalid', Boolean(noItems && showAllErrors));
+}
+
+function goToField(field) {
+  // mobil zuerst in die Bearbeiten-Ansicht wechseln
+  if (layout.dataset.view !== 'edit') $('.view-switch [data-view="edit"]').click();
+  const target = field === 'items'
+    ? $('#add-item-btn')
+    : [...allInputs()].find((i) => fieldKey(i) === field);
+  if (!target) return;
+  target.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'center' });
+  target.focus({ preventScroll: true });
+}
+
+form.addEventListener('focusout', (e) => {
+  if (!e.target.matches('[data-field], [data-key]')) return;
+  touched.add(fieldKey(e.target));
+  renderFieldErrors();
+});
+
+let toastTimer;
+function toast(message) {
+  const t = $('#toast');
+  t.textContent = message;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3500);
 }
 
 // ---------- Ansicht (mobil: Bearbeiten / Vorschau) ----------
@@ -271,7 +315,7 @@ function update() {
   let totals = null;
   try { totals = calculateTotals(invoice.items, { kleinunternehmer: invoice.kleinunternehmer }); } catch { /* ungültige Eingabe */ }
   renderPreview(totals);
-  renderCheck(validateInvoice(invoice));
+  renderFieldErrors();
   $('#sumbar-total').textContent = totals ? formatEUR(totals.gross) : '–';
   save();
 }
