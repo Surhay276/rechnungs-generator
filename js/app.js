@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=8';
+} from './invoice.js?v=9';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -246,12 +246,18 @@ function renderFieldErrors(errors = validateInvoiceFields(invoice)) {
   for (const input of allInputs()) {
     const key = fieldKey(input);
     const message = (showAllErrors || touched.has(key)) ? byField.get(key) : undefined;
-    const container = input.closest('.field, label');
-    let hint = container.querySelector(':scope > .field-error');
+    // Positionen: Fehler als eigene Zeile unter den Feldern (sonst verschieben sich die Eingabefelder)
+    const row = input.closest('.item-row');
+    const container = row ?? input.closest('.field, label');
+    const hintId = `err-${key.replace(/\./g, '-')}`;
+    let hint = container.querySelector(`#${hintId}`);
     if (message) {
       if (!hint) {
-        hint = el('p', { className: 'field-error', id: `err-${key.replace(/\./g, '-')}` });
-        container.append(hint);
+        hint = el('p', { className: 'field-error', id: hintId });
+        hint.dataset.order = [...row?.querySelectorAll('[data-key]') ?? []].indexOf(input);
+        // in Feldreihenfolge einsortieren (Beschreibung vor Menge vor Preis)
+        const next = row && [...row.querySelectorAll(':scope > .field-error')].find((h) => Number(h.dataset.order) > Number(hint.dataset.order));
+        if (next) next.before(hint); else container.append(hint);
       }
       // In der Positionskarte ist die Nummer schon sichtbar → Präfix weglassen
       hint.textContent = key.startsWith('items.') ? message.replace(/^Position \d+: /, '') : message;

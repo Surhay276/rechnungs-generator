@@ -233,7 +233,7 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 .input[aria-invalid="true"] { border-color: #FDA29B; background: #FFFBFA; }
 .input[aria-invalid="true"]:focus-visible { border-color: #F04438; box-shadow: var(--shadow-xs), 0 0 0 4px #FEE4E2; }
 .btn.is-invalid { border-color: #FDA29B; color: var(--error-fg); box-shadow: 0 0 0 4px #FEE4E2; }
-.item-row label > .field-error { position: static; width: auto; height: auto; clip-path: none; }
+.item-row > .field-error { grid-column: 1 / -1; margin-top: -2px; }
 
 /* Toast */
 .toast {
