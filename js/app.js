@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=4';
+} from './invoice.js?v=5';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -253,7 +253,8 @@ function renderFieldErrors(errors = validateInvoiceFields(invoice)) {
         hint = el('p', { className: 'field-error', id: `err-${key.replace(/\./g, '-')}` });
         container.append(hint);
       }
-      hint.textContent = message;
+      // In der Positionskarte ist die Nummer schon sichtbar → Präfix weglassen
+      hint.textContent = key.startsWith('items.') ? message.replace(/^Position \d+: /, '') : message;
       input.setAttribute('aria-invalid', 'true');
       input.setAttribute('aria-describedby', hint.id);
     } else {

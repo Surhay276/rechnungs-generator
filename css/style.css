@@ -375,6 +375,7 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
     border-radius: var(--radius-md);
   }
   .item-row .input { padding: 8px; }
+  .item-row { align-items: start; }
   .item-row label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .item-row label > span { position: static; width: auto; height: auto; clip-path: none; font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
   .f-desc { grid-area: desc; }
