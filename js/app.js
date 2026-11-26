@@ -5,9 +5,10 @@ import {
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
+const present = (c) => c !== null && c !== undefined && c !== false && c !== '';
 const el = (tag, props = {}, ...children) => {
   const node = Object.assign(document.createElement(tag), props);
-  node.append(...children.filter((c) => c !== null && c !== undefined && c !== false));
+  node.append(...children.filter(present));
   return node;
 };
 const today = () => new Date().toISOString().slice(0, 10);
@@ -179,7 +180,7 @@ function renderPreview(totals) {
     ]
     : [el('tr', {}, el('td', { colSpan: 2, textContent: 'Bitte gültige Beträge eingeben.' }))];
 
-  preview.replaceChildren(
+  preview.replaceChildren(...[
     el('header', { className: 'inv-head' },
       el('div', { className: 'inv-sender' },
         el('strong', { textContent: sender.name || 'Ihr Name / Firma' }),
@@ -213,7 +214,7 @@ function renderPreview(totals) {
       el('div', {}, el('strong', { textContent: sender.name || '' }), el('br'), ...multiline(sender.address)),
       el('div', {}, sender.taxId ? `Steuernr./USt-IdNr.: ${sender.taxId}` : '', el('br'), sender.email || ''),
       el('div', {}, sender.bank || '', el('br'), sender.iban ? `IBAN: ${formatIBAN(sender.iban)}` : '')),
-  );
+  ].filter(present));
 }
 
 function renderErrors(errors) {
