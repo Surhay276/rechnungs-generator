@@ -1,0 +1,13 @@
+{
+  "name": "rechnungs-generator",
+  "version": "1.0.0",
+  "description": "Rechnungsgenerator mit Live-Vorschau und USt-Berechnung – ohne Abhängigkeiten",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "npx --yes serve .",
+    "test": "node --test tests/*.test.js"
+  },
+  "author": "Surhay Yilmaz",
+  "license": "MIT"
+}
