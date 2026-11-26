@@ -240,7 +240,8 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
 .check-meter span.on { background: currentColor; }
 
 /* ---------- Vorschau (A4) ---------- */
-.preview-wrap { position: sticky; top: 108px; }
+.preview-wrap { position: sticky; top: 108px; min-width: 0; }
+.paper-fit { min-width: 0; overflow: hidden; }
 .paper-fit { display: flex; justify-content: center; }
 .paper {
   --paper-zoom: 1;
@@ -318,7 +319,7 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .tab .icon { width: 18px; height: 18px; }
   .tab[aria-selected="true"] { background: var(--surface); color: var(--text); border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
 
-  .layout { grid-template-columns: 1fr; padding: 20px; gap: 0; }
+  .layout { grid-template-columns: minmax(0, 1fr); padding: 20px; gap: 0; }
   .layout[data-view="edit"] .preview-wrap { display: none; }
   .layout[data-view="preview"] .editor { display: none; }
   .preview-wrap { position: static; }
@@ -349,16 +350,17 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .items-head { display: none; }
   .items { gap: 12px; }
   .item-row {
-    grid-template-columns: repeat(4, minmax(0, 1fr)) var(--tap);
+    grid-template-columns: minmax(0, .9fr) minmax(0, 1fr) minmax(0, 1.5fr) minmax(0, 1.1fr);
     grid-template-areas:
-      "desc desc desc desc del"
-      "qty unit price tax tax";
+      "desc desc desc del"
+      "qty unit price tax";
     gap: 10px 8px;
     padding: 12px;
     background: var(--gray-50);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
   }
+  .item-row .input { padding: 8px; }
   .item-row label { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
   .item-row label > span { position: static; width: auto; height: auto; clip-path: none; font-size: 12px; font-weight: 500; color: var(--text-tertiary); }
   .f-desc { grid-area: desc; }
@@ -366,7 +368,7 @@ select.input:disabled { color: var(--text-tertiary); background: var(--surface-s
   .f-unit { grid-area: unit; }
   .f-price { grid-area: price; }
   .f-tax { grid-area: tax; }
-  .item-row [data-action="remove"] { grid-area: del; align-self: end; }
+  .item-row [data-action="remove"] { grid-area: del; align-self: end; justify-self: end; }
   #add-item-btn { align-self: stretch; }
 }
 
