@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=7';
+} from './invoice.js?v=8';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -362,7 +362,9 @@ paperFit.addEventListener('wheel', (e) => {
   if (!desktop.matches || !(e.ctrlKey || e.metaKey)) return;
   e.preventDefault();
   const rect = paperFit.getBoundingClientRect();
-  setZoom(currentZoom() * Math.exp(-e.deltaY * 0.01), { x: e.clientX - rect.left, y: e.clientY - rect.top });
+  // Mausrad liefert große Sprünge (~100), Touchpad-Pinch kleine → begrenzen, damit eine Raststufe ≈ 20 % ist
+  const delta = Math.max(-20, Math.min(20, e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY));
+  setZoom(currentZoom() * Math.exp(-delta * 0.01), { x: e.clientX - rect.left, y: e.clientY - rect.top });
 }, { passive: false });
 
 // Safari: Pinch-Gesten auf dem Trackpad
