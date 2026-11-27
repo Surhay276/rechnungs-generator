@@ -83,6 +83,7 @@ test('Skonto und Fälligkeit', () => {
   assert.deepEqual(skontoInfo(11900, '2026-11-27', { enabled: true, percent: '2', days: 10 }),
     { percent: 2, days: 10, amount: 238, payable: 11662, until: '2026-12-07' });
   assert.equal(skontoInfo(11900, '2026-11-27', { enabled: false, percent: '2', days: 10 }), null);
+  assert.equal(dueDate({ date: '2026-11-27', paymentDays: 7 }), '2026-12-04');
   assert.equal(dueDate({ date: '2026-11-27', paymentDays: 14 }), '2026-12-11');
   assert.equal(dueDate({ date: '2026-11-27', paymentDays: 0 }), '2026-11-27');
   assert.equal(dueDate({ date: '2026-11-27', paymentDays: 'custom', dueDate: '2027-01-15' }), '2027-01-15');

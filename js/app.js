@@ -2,11 +2,11 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=18';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=18';
+} from './invoice.js?v=20';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=20';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=18';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=20';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -740,7 +740,9 @@ function applyZoom(anchor) {
   const ay = anchor ? anchor.y + paperFit.scrollTop : 0;
   preview.style.setProperty('--paper-zoom', zoom.toFixed(4));
   paperFit.classList.toggle('is-zoomed', desktop.matches && zoom > fit + 0.001);
-  $('#zoom-fit').textContent = `${Math.round((zoom / fit) * 100)} %`; // „Ganze Seite“ = 100 %
+  const pct = `${Math.round((zoom / fit) * 100)} %`; // „Ganze Seite“ = 100 %
+  $('#zoom-fit').textContent = pct;
+  $('#zoom-fit').setAttribute('aria-label', `${pct} – ganze Seite anzeigen`);
   $('#zoom-fit').classList.toggle('is-fit', manualZoom === null);
   $('#zoom-out').disabled = zoom <= ZOOM_MIN + 0.001;
   $('#zoom-in').disabled = zoom >= ZOOM_MAX - 0.001;

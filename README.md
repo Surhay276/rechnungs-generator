@@ -22,7 +22,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 - Startet leer: ein Hinweis führt zu den **eigenen Firmendaten** (Einstellungen); ein ausgefülltes Beispiel gibt es per Klick unter *Einstellungen → Beispieldaten ansehen*
 - Geführter Ablauf in **drei Schritten** (Rechnungsdetails → Leistungen → Zahlung & Texte), Aufbau angelehnt an Qonto
 - **Kundenliste**: Kunden speichern und mit einem Klick übernehmen
-- **Zahlungsfrist** per Auswahl (sofort, 14/30/45/60 Tage oder eigenes Datum), **Leistungszeitraum** von–bis
+- **Zahlungsfrist** per Auswahl (sofort, 7/14/30/45/60 Tage oder eigenes Datum), **Leistungszeitraum** von–bis
 - Leistungen mit Einheit, **Netto- oder Bruttopreis** (wird automatisch umgerechnet) und **Rabatt** je Position
 - **Rabatt auf den Gesamtbetrag** in Euro oder Prozent
 - **Skonto** bei schneller Zahlung, **Kleinunternehmerregelung** (§ 19 UStG)
@@ -68,6 +68,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 | Tests | 16 Unit-Tests mit `node:test` – Rundung, Rabattverteilung, Skonto, IBAN, GiroCode, Pflichtangaben, XML-Summen |
 | Barrierefreiheit | Beschriftete Felder, Fehler per `aria-invalid`/`aria-describedby`, sichtbarer Fokus, `prefers-reduced-motion` |
 | CI/CD | GitHub Actions: Unit-Tests + E-Rechnungs-Prüfung (Validator per Prüfsumme gesichert), Deployment über GitHub Pages |
+| Barrierefreiheit | Geprüft mit axe-core ohne Befunde (hell & dunkel, Desktop & Handy): Kontraste nach WCAG AA, Touch-Ziele ≥ 44 px, Tastaturbedienung, reduzierte Bewegung |
 | Aktualität | Die Seite fragt beim Öffnen `version.json` am Cache vorbei ab und lädt sich bei einer neueren Version einmal frisch – so sieht niemand eine veraltete Version (`node scripts/bump-version.mjs` zählt alle Versionsangaben hoch) |
 
 ```

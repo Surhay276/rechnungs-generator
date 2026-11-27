@@ -16,8 +16,8 @@
   --text: #101828;
   --text-2: #344054;
   --text-3: #667085;
-  --primary: #0E9384;
-  --primary-hover: #107569;
+  --primary: #107569; /* Teal 700 – weiße Schrift erreicht 5,3 : 1 (WCAG AA) */
+  --primary-hover: #125D56;
   --primary-soft: #F0FDF9;
   --primary-soft-2: #CCFBEF;
   --on-primary: #FFFFFF;
@@ -147,7 +147,7 @@ html.scroll-locked, html.scroll-locked body { overflow: hidden; }
   background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-xs);
   transition: border-color .15s, box-shadow .15s;
 }
-.input.mono { font-size: 15px; }
+.input.mono { font-size: 16px; } /* < 16 px würde iOS beim Antippen hineinzoomen */
 .input:focus-visible { border-color: var(--primary); box-shadow: var(--shadow-xs), var(--ring); }
 .input::placeholder { color: var(--text-3); opacity: .8; }
 .input:disabled { background: var(--surface-2); color: var(--text-3); }
@@ -196,11 +196,15 @@ select.input::-ms-expand { display: none; }
 /* Chips (Zahlungsfrist) */
 .chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .chip {
-  min-height: 38px; padding: 0 14px; border-radius: 99px; cursor: pointer;
+  min-height: max(38px, var(--tap)); padding: 0 14px; border-radius: 99px; cursor: pointer;
   border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-2);
   font-size: 14px; font-weight: 500; transition: background-color .15s, color .15s, border-color .15s;
 }
 .chip:hover { background: var(--surface-2); }
+/* Zahlungsfrist: gleichmäßiges Raster statt unruhigem Umbruch */
+#payment-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+#payment-chips .chip { padding: 0 6px; }
+#payment-chips [data-days="custom"] { grid-column: span 2; }
 .chip.is-active { background: var(--text); border-color: var(--text); color: var(--bg); }
 
 .more summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--primary); list-style: none; padding: 4px 0; }
@@ -238,6 +242,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .step-sep { width: 16px; height: 16px; color: var(--border-strong); }
 
 .view-switch { display: none; }
+.view-switch-tabs { display: contents; }
 
 /* ---------- Layout ---------- */
 .layout {
@@ -585,6 +590,8 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
   .topbar .brand-mark { display: none; }
   .topbar-actions { gap: 0; }
   /* Galaxy Fold (zugeklappt) & sehr schmale Handys */
+  #payment-chips { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #payment-chips [data-days="custom"] { grid-column: 1 / -1; }
   .onboarding { padding: 14px; gap: 12px; }
   .onboarding-icon { display: none; }
   .bank-summary { flex-direction: column; align-items: flex-start; }
@@ -633,4 +640,9 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* Wer reduzierte Bewegung eingestellt hat, bekommt keine Animationen */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

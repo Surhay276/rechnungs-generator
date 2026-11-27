@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="18">
+  <meta name="app-version" content="20">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,7 +27,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=18">
+  <link rel="stylesheet" href="css/style.css?v=20">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -104,10 +104,12 @@
       </div>
     </header>
 
-    <div class="view-switch no-print" role="tablist" aria-label="Ansicht">
-      <button type="button" role="tab" class="tab" data-view="edit" aria-selected="true"><svg class="icon"><use href="#i-edit"/></svg>Bearbeiten</button>
-      <button type="button" role="tab" class="tab" data-view="preview" aria-selected="false"><svg class="icon"><use href="#i-eye"/></svg>Vorschau</button>
-    </div>
+    <nav class="view-switch no-print" aria-label="Ansicht">
+      <div class="view-switch-tabs" role="tablist" aria-label="Ansicht">
+        <button type="button" role="tab" class="tab" data-view="edit" aria-selected="true"><svg class="icon"><use href="#i-edit"/></svg>Bearbeiten</button>
+        <button type="button" role="tab" class="tab" data-view="preview" aria-selected="false"><svg class="icon"><use href="#i-eye"/></svg>Vorschau</button>
+      </div>
+    </nav>
 
     <main class="layout" data-view="edit">
       <section class="editor no-print" aria-label="Rechnung bearbeiten">
@@ -157,6 +159,7 @@
                 <legend class="field-label">Zahlungsfrist</legend>
                 <div class="chips" id="payment-chips" role="radiogroup" aria-label="Zahlungsfrist">
                   <button type="button" class="chip" role="radio" data-days="0">Sofort</button>
+                  <button type="button" class="chip" role="radio" data-days="7">7 Tage</button>
                   <button type="button" class="chip" role="radio" data-days="14">14 Tage</button>
                   <button type="button" class="chip" role="radio" data-days="30">30 Tage</button>
                   <button type="button" class="chip" role="radio" data-days="45">45 Tage</button>
@@ -253,7 +256,7 @@
         <div class="paper-fit" id="paper-fit"><article id="preview" class="paper"></article></div>
         <div class="zoom no-print" role="group" aria-label="Zoom der Vorschau">
           <button type="button" id="zoom-in" class="zoom-btn" aria-label="Vergrößern" title="Vergrößern (Strg/⌘ + Mausrad)"><svg class="icon"><use href="#i-plus"/></svg></button>
-          <button type="button" id="zoom-fit" class="zoom-level" aria-label="Ganze Seite anzeigen" title="Ganze Seite anzeigen">100 %</button>
+          <button type="button" id="zoom-fit" class="zoom-level" aria-label="100 % – ganze Seite anzeigen" title="Ganze Seite anzeigen">100 %</button>
           <button type="button" id="zoom-out" class="zoom-btn" aria-label="Verkleinern" title="Verkleinern (Strg/⌘ + Mausrad)"><svg class="icon"><use href="#i-minus"/></svg></button>
         </div>
       </section>
@@ -269,7 +272,7 @@
   <div id="toast" class="toast no-print" role="status" aria-live="polite"></div>
 
   <!-- Summenleiste (mobil) -->
-  <div class="sumbar no-print">
+  <div class="sumbar no-print" role="region" aria-label="Rechnungsbetrag">
     <div>
       <span class="sumbar-label">Rechnungsbetrag</span>
       <strong id="sumbar-total" class="sumbar-total">0,00 €</strong>
@@ -321,8 +324,8 @@
           <label class="field col-zip"><span class="field-label">PLZ <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.zip" inputmode="numeric" autocomplete="postal-code" required></label>
           <label class="field col-city"><span class="field-label">Ort <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.city" autocomplete="address-level2" required></label>
           <label class="field col-full"><span class="field-label">Ansprechpartner <span class="optional">optional</span></span><input class="input" data-setting="company.contact" autocomplete="name"></label>
-          <label class="field col-half"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
-          <label class="field col-half"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+          <label class="field col-city"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
+          <label class="field col-zip"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
         </div>
         <p class="field-hint">E-Mail und Telefon werden für die E-Rechnung benötigt.</p>
       </section>
@@ -453,6 +456,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=18"></script>
+  <script type="module" src="js/app.js?v=20"></script>
 </body>
 </html>
