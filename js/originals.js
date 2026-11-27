@@ -1,7 +1,7 @@
 /**
  * Originale ausgestellter Rechnungen (IndexedDB).
  *
- * Beim Abschließen werden PDF und E-Rechnung genau einmal erzeugt und hier abgelegt – mit SHA-256-Prüfsumme.
+ * Beim Abschließen werden PDF und E-Rechnung genau einmal erzeugt und hier abgelegt: mit SHA-256-Prüfsumme.
  * Spätere Downloads liefern dieses Original, nicht eine Neuberechnung: Auch nach einem Programm-Update
  * bekommt man byte-genau das Dokument, das verschickt wurde.
  */

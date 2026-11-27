@@ -2,9 +2,9 @@
  * Vorschau der Rechnung als A4-Blatt (HTML) und Zoom am Desktop.
  * Inhalt kommt aus demselben Modell wie das PDF (view.js).
  */
-import { $, el, icon, svgEl, multiline } from './ui.js?v=26';
-import { invoiceTheme } from './color.js?v=26';
-import { design } from './store.js?v=26';
+import { $, el, icon, svgEl, multiline } from './ui.js?v=27';
+import { invoiceTheme } from './color.js?v=27';
+import { design } from './store.js?v=27';
 
 /** Überträgt die abgeleiteten Farbtöne als CSS-Variablen auf ein Element (Blatt oder Muster). */
 export function applyDesign(target, source) {
@@ -17,7 +17,7 @@ export function applyDesign(target, source) {
 
 /**
  * Logo in exakter Originalform: Breite und Höhe werden aus dem Seitenverhältnis berechnet
- * (passt in 55 × 24 mm, wie im PDF) – kein Zuschneiden, kein Verzerren.
+ * (passt in 55 × 24 mm, wie im PDF): kein Zuschneiden, kein Verzerren.
  */
 const logoSizes = new Map();
 function sizeLogo(img, w, h) {
@@ -74,7 +74,7 @@ export function renderPreview(paper, v, settingsSource, { onFixIban }) {
     qr = el('button', { type: 'button', className: 'inv-qr-missing', onclick: onFixIban },
       icon('alert'),
       el('strong', { textContent: 'GiroCode fehlt' }),
-      el('span', { textContent: v.qrMissing.invalid ? 'IBAN ungültig – hier korrigieren' : 'IBAN eintragen, dann erscheint er hier' }));
+      el('span', { textContent: v.qrMissing.invalid ? 'IBAN ungültig, hier korrigieren' : 'IBAN eintragen, dann erscheint er hier' }));
   }
 
   paper.replaceChildren(...[
@@ -133,7 +133,7 @@ export function setupZoom(paper, paperFit) {
     paperFit.classList.toggle('is-zoomed', desktop.matches && zoom > fit + 0.001);
     const pct = `${Math.round((zoom / fit) * 100)} %`; // „Ganze Seite“ = 100 %
     $('#zoom-fit').textContent = pct;
-    $('#zoom-fit').setAttribute('aria-label', `${pct} – ganze Seite anzeigen`);
+    $('#zoom-fit').setAttribute('aria-label', `${pct}, ganze Seite anzeigen`);
     $('#zoom-fit').classList.toggle('is-fit', manualZoom === null);
     $('#zoom-out').disabled = zoom <= ZOOM_MIN + 0.001;
     $('#zoom-in').disabled = zoom >= ZOOM_MAX - 0.001;

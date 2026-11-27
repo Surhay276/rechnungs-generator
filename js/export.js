@@ -1,18 +1,18 @@
 /**
  * Dokumente erzeugen und ausliefern: PDF/A-3 mit eingebetteter E-Rechnung (ZUGFeRD), XRechnung, Sicherung.
  */
-import { toCII, toXRechnung } from './invoice.js?v=26';
-import { buildInvoiceView } from './view.js?v=26';
-import { el, toast, downloadBlob } from './ui.js?v=26';
-import { saveOriginal, getOriginal, allOriginals, verifyOriginal } from './originals.js?v=26';
-import { state, invSettings, totalsOf, design, validationContext, normalize } from './store.js?v=26';
+import { toCII, toXRechnung } from './invoice.js?v=27';
+import { buildInvoiceView } from './view.js?v=27';
+import { el, toast, downloadBlob } from './ui.js?v=27';
+import { saveOriginal, getOriginal, allOriginals, verifyOriginal } from './originals.js?v=27';
+import { state, invSettings, totalsOf, design, validationContext, normalize } from './store.js?v=27';
 
 
 // ---------- Ressourcen fürs PDF ----------
 let assets = null;
 /** Schriften (Inter, ca. 24 KB je Schnitt) und sRGB-Farbprofil einmalig laden. */
 function loadAssets() {
-  const get = (url) => fetch(`${url}?v=26`).then((r) => {
+  const get = (url) => fetch(`${url}?v=27`).then((r) => {
     if (!r.ok) throw new Error(`${url} nicht gefunden`);
     return r.arrayBuffer();
   });
@@ -22,7 +22,7 @@ function loadAssets() {
   return assets;
 }
 
-/** Logo als Rohpixel (RGB + Transparenz) – Seitenverhältnis bleibt exakt erhalten, nichts wird beschnitten. */
+/** Logo als Rohpixel (RGB + Transparenz): Seitenverhältnis bleibt exakt erhalten, nichts wird beschnitten. */
 function rasterizeLogo(src) {
   if (!src) return Promise.resolve(null);
   return new Promise((resolve) => {
@@ -60,11 +60,11 @@ export function viewOf(inv) {
 }
 
 /**
- * Erzeugt PDF (PDF/A-3, mit ZUGFeRD-XML wenn möglich) und – wenn die Angaben reichen – die XRechnung.
+ * Erzeugt PDF (PDF/A-3, mit ZUGFeRD-XML wenn möglich) und: wenn die Angaben reichen: die XRechnung.
  * @returns { pdf, pdfName, xml, xmlName, zugferd: boolean }
  */
 export async function buildDocuments(inv, s = invSettings(inv)) {
-  const { createInvoicePdf } = await import('./invoice-pdf.js?v=26');
+  const { createInvoicePdf } = await import('./invoice-pdf.js?v=27');
   const view = buildInvoiceView(inv, s, totalsOf(inv), design(s));
   const context = validationContext();
   let embedded = null;
@@ -88,7 +88,7 @@ export async function storeOriginal(id, docs) {
   }
 }
 
-/** Original einer abgeschlossenen Rechnung – oder null (ältere Rechnung, Browser ohne IndexedDB). */
+/** Original einer abgeschlossenen Rechnung: oder null (ältere Rechnung, Browser ohne IndexedDB). */
 export async function originalOf(inv) {
   try {
     const record = await getOriginal(inv.id);
@@ -108,7 +108,7 @@ export const isMobileDevice = () => navigator.userAgentData?.mobile
   || /Android|iPhone|iPad|iPod|Mobi|Silk|Kindle/i.test(navigator.userAgent)
   || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)); // iPadOS meldet sich als Mac
 
-/** Desktop: Tab sofort öffnen, solange der Klick noch „frisch“ ist – sonst blockt der Browser das Pop-up. */
+/** Desktop: Tab sofort öffnen, solange der Klick noch „frisch“ ist: sonst blockt der Browser das Pop-up. */
 export function openPendingTab() {
   if (isMobileDevice()) return null;
   const tab = window.open('', '_blank');
@@ -129,7 +129,7 @@ export function deliverPdf(bytes, name, tab = null, note = '') {
   } else if (navigator.canShare?.({ files: [file] })) {
     toast(message, { label: 'Öffnen', run: () => navigator.share({ files: [file], title: name }).catch(() => {}) });
   } else {
-    toast(`${message} – du findest es in deinen Downloads.`);
+    toast(`${message}. Du findest es in deinen Downloads.`);
   }
 }
 
@@ -146,7 +146,7 @@ const toBase64 = (bytes) => {
 };
 const fromBase64 = (b64) => Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
 
-/** Komplette Sicherung als JSON-Datei – inklusive der Originale abgeschlossener Rechnungen. */
+/** Komplette Sicherung als JSON-Datei: inklusive der Originale abgeschlossener Rechnungen. */
 export async function exportBackup() {
   let originals = [];
   try { originals = await allOriginals(); } catch { /* ohne IndexedDB nur die Daten */ }
@@ -163,7 +163,7 @@ export async function exportBackup() {
 }
 
 /**
- * Liest eine Sicherung ein. Abgeschlossene Rechnungen, die es nur hier gibt, bleiben erhalten –
+ * Liest eine Sicherung ein. Abgeschlossene Rechnungen, die es nur hier gibt, bleiben erhalten:
  * eine Sicherung kann also nichts Ausgestelltes überschreiben oder löschen.
  */
 export async function importBackup(file) {

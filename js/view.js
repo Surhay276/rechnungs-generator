@@ -1,13 +1,13 @@
 /**
- * Inhalt der Rechnung, fertig formatiert – ohne DOM.
+ * Inhalt der Rechnung, fertig formatiert: ohne DOM.
  * Die Vorschau im Browser und das PDF bauen beide auf diesem Modell auf: So steht im PDF
  * garantiert dasselbe wie in der Vorschau.
  */
 import {
   toPriceUnits, toQuantityUnits, toCents, formatMoney, formatPrice, formatQuantity, unitLabel, dueDate, servicePeriod, skontoInfo,
-  isValidIBAN, epcPayload, formatAddress, formatIBAN, formatDate, kindOf, legalInfo, taxInEUR, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, LEGAL_FORMS,
-} from './invoice.js?v=26';
-import { invoiceTheme } from './color.js?v=26';
+  isValidIBAN, epcPayload, formatAddress, formatIBAN, formatDate, kindOf, legalInfo, taxInEUR, centsInEUR, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, LEGAL_FORMS,
+} from './invoice.js?v=27';
+import { invoiceTheme } from './color.js?v=27';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
 
@@ -34,7 +34,7 @@ export const pdfFileName = (inv) => [inv.number, inv.customer?.name].filter(Bool
   .replace(/ı/g, 'i').normalize('NFD').replace(/[̀-ͯ]/g, '')
   .replace(/[^\x20-\x7e]/g, '').replace(/[\\/:*?"<>|]+/g, '-').replace(/\s+/g, ' ').trim() || 'Rechnung';
 
-/** Hinweise zur Steuer (§ 14 Abs. 4 Nr. 8, § 14a UStG) – je Steuerart einmal. */
+/** Hinweise zur Steuer (§ 14 Abs. 4 Nr. 8, § 14a UStG): je Steuerart einmal. */
 function taxNotes(inv, totals, ku) {
   if (ku) return [KLEINUNTERNEHMER_HINWEIS];
   if (!totals) return [];
@@ -64,22 +64,22 @@ export function buildInvoiceView(inv, s, totals, design) {
 
   // ---------- Rechnungsdaten rechts oben ----------
   const serviceLabel = period?.mode === 'period' ? 'Leistungszeitraum' : 'Leistungsdatum';
-  const serviceValue = !period ? '—' : period.from === period.to ? formatDate(period.from) : `${formatDate(period.from)} – ${formatDate(period.to)}`;
+  const serviceValue = !period ? '-' : period.from === period.to ? formatDate(period.from) : `${formatDate(period.from)} bis ${formatDate(period.to)}`;
   const meta = [
-    [storno ? 'Stornonummer' : 'Rechnungsnummer', inv.number || '—'],
-    ['Rechnungsdatum', formatDate(inv.date) || '—'],
+    [storno ? 'Stornonummer' : 'Rechnungsnummer', inv.number || '-'],
+    ['Rechnungsdatum', formatDate(inv.date) || '-'],
     storno && inv.reference?.number && ['Zu Rechnung', `${inv.reference.number}${inv.reference.date ? ` vom ${formatDate(inv.reference.date)}` : ''}`],
     [serviceLabel, serviceValue],
     due && ['Fällig am', formatDate(due)],
     k.vatId && ['Ihre USt-IdNr.', k.vatId],
     k.reference && [k.isPublic || /^\d{2,12}-/.test(k.reference) ? 'Leitweg-ID' : 'Ihre Referenz', k.reference],
-    currency !== 'EUR' && ['Währung', `${currency}${inv.fxRate ? ` (1 ${currency} = ${decimal(inv.fxRate)} EUR)` : ''}`],
+    currency !== 'EUR' && ['Währung', `${currency}${inv.fxRate ? ` (1 ${currency} = ${decimal(inv.fxRate)} EUR${inv.fxDate ? `, EZB ${formatDate(inv.fxDate)}` : ''})` : ''}`],
   ].filter(Boolean);
 
   // ---------- Positionen ----------
   const rows = inv.items.map((item, i) => {
     const line = totals?.lines[i];
-    let price = '–';
+    let price = '-';
     let quantity = String(item.quantity ?? '');
     try { price = formatPrice(sign * toPriceUnits(item.unitPrice), currency); } catch { /* ungültig */ }
     try { quantity = formatQuantity(toQuantityUnits(item.quantity)); } catch { /* ungültig */ }
@@ -88,12 +88,12 @@ export function buildInvoiceView(inv, s, totals, design) {
       : '';
     return {
       pos: String(i + 1),
-      description: item.description || '—',
+      description: item.description || '-',
       details: [item.details, discount].filter(Boolean),
       quantity: `${quantity} ${unitLabel(item.unit)}`.trim(),
       price,
       tax: line?.type.short ?? '',
-      total: line ? money(line.shown.total) : '–',
+      total: line ? money(line.shown.total) : '-',
     };
   });
 
@@ -128,15 +128,22 @@ export function buildInvoiceView(inv, s, totals, design) {
     } else if (kind.key === 'final' && payable === 0) payTexts.push('Der Rechnungsbetrag ist durch die Abschlagszahlungen vollständig beglichen.');
   }
   if (skonto?.until) {
-    payTexts.push(`Bei Zahlung bis zum ${formatDate(skonto.until)} gewähren wir ${decimal(skonto.percent)} % Skonto (${money(skonto.amount)}) – zu zahlen sind dann ${money(skonto.payable)}.`
+    payTexts.push(`Bei Zahlung bis zum ${formatDate(skonto.until)} gewähren wir ${decimal(skonto.percent)} % Skonto (${money(skonto.amount)}). Zu zahlen sind dann ${money(skonto.payable)}.`
       + `${totals.tax > 0 ? ' Entgelt und Umsatzsteuer mindern sich entsprechend.' : ''}`);
   }
 
+  // GiroCode (EPC-QR) kennt nur Euro: Bei Fremdwährung enthält er den zum Rechnungskurs umgerechneten Euro-Betrag.
   let qr = null;
   let qrMissing = null;
-  if (inv.giroCode && !storno && currency === 'EUR' && payable > 0) {
+  let qrCaption = 'Jetzt mit dem Smartphone scannen';
+  const euroPayable = currency === 'EUR' ? payable : safe(() => centsInEUR(payable, inv.fxRate));
+  if (inv.giroCode && !storno && payable > 0 && euroPayable > 0) {
     if (isValidIBAN(c.iban) && c.name) {
-      try { qr = qrModules(epcPayload({ name: c.name, iban: c.iban, bic: c.bic, amountCents: payable, reference: inv.number })); } catch { qr = null; }
+      try { qr = qrModules(epcPayload({ name: c.name, iban: c.iban, bic: c.bic, amountCents: euroPayable, reference: inv.number })); } catch { qr = null; }
+      if (qr && currency !== 'EUR') {
+        qrCaption = `Scannen und ${formatMoney(euroPayable, 'EUR')} zahlen`;
+        payTexts.push(`Per GiroCode zahlen Sie den umgerechneten Betrag von ${formatMoney(euroPayable, 'EUR')} (1 ${currency} = ${decimal(inv.fxRate)} EUR).`);
+      }
     } else if (!isValidIBAN(c.iban)) {
       qrMissing = { invalid: Boolean(c.iban) }; // nur am Bildschirm, nie im PDF
     }
@@ -172,7 +179,7 @@ export function buildInvoiceView(inv, s, totals, design) {
     notes: [gross && !ku && 'Alle Einzelpreise und Beträge der Positionen enthalten die Umsatzsteuer.', ...taxNotes(inv, totals, ku), inv.retentionNotice && RETENTION_NOTICE].filter(Boolean),
     payTexts,
     qr,
-    qrCaption: 'Jetzt mit dem Smartphone scannen',
+    qrCaption,
     qrMissing,
     note: inv.note || '',
     footer: [

@@ -2,9 +2,9 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://photon.komoot.io https://openplzapi.org; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://photon.komoot.io https://openplzapi.org https://api.frankfurter.dev; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'none'">
   <meta name="referrer" content="no-referrer">
-  <meta name="app-version" content="26">
+  <meta name="app-version" content="27">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -13,7 +13,7 @@
   <meta property="og:type" content="website">
   <meta property="og:locale" content="de_DE">
   <meta property="og:title" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
-  <meta property="og:description" content="Rechnungen im Browser erstellen – mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
+  <meta property="og:description" content="Rechnungen im Browser erstellen mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
   <meta property="og:url" content="https://surhay276.github.io/rechnungs-generator/">
   <meta property="og:site_name" content="Hüseyin Surhay Yilmaz">
   <meta property="og:image" content="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
@@ -24,13 +24,13 @@
   <meta property="og:image:alt" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
-  <meta name="twitter:description" content="Rechnungen im Browser erstellen – mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
+  <meta name="twitter:description" content="Rechnungen im Browser erstellen mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
   <meta name="twitter:image" content="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=26">
-  <script src="js/boot.js?v=26"></script>
+  <link rel="stylesheet" href="css/style.css?v=27">
+  <script src="js/boot.js?v=27"></script>
 </head>
 <body>
   <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -100,7 +100,7 @@
           <div class="locked-note" id="locked-note" role="status" data-keep hidden>
             <span class="locked-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
             <div class="locked-text">
-              <strong>Abgeschlossen – nicht mehr änderbar</strong>
+              <strong>Abgeschlossen, nicht mehr änderbar</strong>
               <p>Ausgestellte Rechnungen dürfen nicht mehr verändert werden. Für eine Korrektur legst du eine Stornorechnung oder eine Kopie mit neuer Nummer an.</p>
             </div>
             <div class="locked-actions">
@@ -143,11 +143,15 @@
                   <span><strong>Öffentlicher Auftraggeber</strong><small>Behörden verlangen eine E-Rechnung mit Leitweg-ID.</small></span>
                 </label>
               </details>
-              <label class="switch">
+              <label class="switch" id="save-customer-switch">
                 <input type="checkbox" role="switch" id="save-customer">
                 <span class="switch-track" aria-hidden="true"></span>
                 <span>In Kundenliste speichern</span>
               </label>
+              <div class="saved-customer" id="saved-customer" hidden>
+                <p class="field-hint">Gespeicherter Kunde. Änderungen gelten für alle offenen Rechnungen dieses Kunden.</p>
+                <button type="button" class="btn btn-secondary btn-sm" id="edit-customer"><svg class="icon"><use href="#i-edit"/></svg>Kunde bearbeiten</button>
+              </div>
             </div>
 
             <h2 class="panel-title">Rechnungsdetails</h2>
@@ -199,9 +203,10 @@
                 <summary>Währung</summary>
                 <div class="grid-2">
                   <label class="field"><span class="field-label">Währung</span><select class="input" data-field="currency" id="currency-select"></select></label>
-                  <label class="field" id="fx-field" hidden><span class="field-label" id="fx-label">Kurs in EUR</span><input class="input mono" data-field="fxRate" inputmode="decimal" placeholder="z. B. 0,9234"></label>
+                  <label class="field" id="fx-field" hidden><span class="field-label" id="fx-label">Kurs in EUR</span><input class="input mono" data-field="fxRate" inputmode="decimal" readonly></label>
                 </div>
-                <span class="field-hint">Bei Fremdwährung wird die Umsatzsteuer zusätzlich in Euro ausgewiesen (§ 16 Abs. 6 UStG).</span>
+                <p class="field-hint hint-row" id="fx-row" hidden><span id="fx-status"></span><button type="button" class="link-btn" id="fx-reload">Neu laden</button><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-fx" aria-label="Info: Wechselkurs" title="Mehr erfahren">i</button></p>
+                <p class="info-text" id="info-fx" hidden>Der Kurs ist der EZB-Referenzkurs zum Rechnungsdatum und wird automatisch geladen (an Wochenenden der Kurs des letzten Bankarbeitstags). Die Umsatzsteuer wird zusätzlich in Euro ausgewiesen, wie es § 16 Abs. 6 UStG verlangt.</p>
               </details>
             </div>
           </div>
@@ -244,7 +249,7 @@
               <label class="switch">
                 <input type="checkbox" role="switch" data-field="giroCode">
                 <span class="switch-track" aria-hidden="true"></span>
-                <span><strong>GiroCode auf der Rechnung</strong><small id="giro-desc">QR-Code, den dein Kunde mit der Banking-App scannt – Betrag, IBAN und Verwendungszweck sind dann ausgefüllt.</small><small class="giro-warning" id="giro-warning" hidden></small></span>
+                <span><strong>GiroCode auf der Rechnung</strong><small id="giro-desc">QR-Code, den dein Kunde mit der Banking-App scannt. Betrag, IBAN und Verwendungszweck sind dann ausgefüllt.</small><small class="giro-warning" id="giro-warning" hidden></small></span>
               </label>
               <label class="switch">
                 <input type="checkbox" role="switch" data-field="skonto.enabled">
@@ -272,7 +277,7 @@
             <h2 class="panel-title">Texte</h2>
             <div class="card">
               <label class="field"><span class="field-label">Kopfzeile</span><textarea class="input" data-field="intro" rows="3" placeholder="Sehr geehrte Damen und Herren, …"></textarea><span class="field-hint">Steht vor den Leistungen.</span></label>
-              <label class="field"><span class="field-label">Anmerkungen</span><textarea class="input" data-field="note" rows="4" placeholder="Vielen Dank für Ihren Auftrag!"></textarea><span class="field-hint">Steht nach dem Zahlungshinweis – z. B. Dank und Grußformel.</span></label>
+              <label class="field"><span class="field-label">Anmerkungen</span><textarea class="input" data-field="note" rows="4" placeholder="Vielen Dank für Ihren Auftrag!"></textarea><span class="field-hint">Steht nach dem Zahlungshinweis, z. B. Dank und Grußformel.</span></label>
               <label class="switch">
                 <input type="checkbox" role="switch" data-field="retentionNotice">
                 <span class="switch-track" aria-hidden="true"></span>
@@ -285,11 +290,11 @@
             <div class="card export mobile-only" data-keep>
               <button type="button" class="export-option" id="export-pdf">
                 <span class="export-icon"><svg class="icon"><use href="#i-download"/></svg></span>
-                <span><strong>PDF exportieren</strong><small>PDF/A mit eingebetteter E-Rechnung (ZUGFeRD) – zum Versenden, Ausdrucken und Archivieren.</small></span>
+                <span><strong>PDF exportieren</strong><small>PDF/A mit eingebetteter E-Rechnung (ZUGFeRD) zum Versenden, Ausdrucken und Archivieren.</small></span>
               </button>
               <button type="button" class="export-option" id="export-xml">
                 <span class="export-icon"><svg class="icon"><use href="#i-code"/></svg></span>
-                <span><strong>E-Rechnung (XRechnung)</strong><small>XML-Datei nach EN 16931 – für Behörden und Rechnungsportale.</small></span>
+                <span><strong>E-Rechnung (XRechnung)</strong><small>XML-Datei nach EN 16931 für Behörden und Rechnungsportale.</small></span>
               </button>
             </div>
           </div>
@@ -310,7 +315,7 @@
         <div class="paper-fit" id="paper-fit"><article id="preview" class="paper"></article></div>
         <div class="zoom no-print" role="group" aria-label="Zoom der Vorschau">
           <button type="button" id="zoom-in" class="zoom-btn" aria-label="Vergrößern" title="Vergrößern (Strg/⌘ + Mausrad)"><svg class="icon"><use href="#i-plus"/></svg></button>
-          <button type="button" id="zoom-fit" class="zoom-level" aria-label="100 % – ganze Seite anzeigen" title="Ganze Seite anzeigen">100 %</button>
+          <button type="button" id="zoom-fit" class="zoom-level" aria-label="100 %, ganze Seite anzeigen" title="Ganze Seite anzeigen">100 %</button>
           <button type="button" id="zoom-out" class="zoom-btn" aria-label="Verkleinern" title="Verkleinern (Strg/⌘ + Mausrad)"><svg class="icon"><use href="#i-minus"/></svg></button>
         </div>
       </section>
@@ -319,7 +324,7 @@
     <footer class="footer no-print">
       Gebaut von <a href="https://github.com/Surhay276">Hüseyin Surhay Yilmaz</a> ·
       <a href="https://github.com/Surhay276/rechnungs-generator">Quellcode auf GitHub</a> ·
-      Alle Daten bleiben lokal in deinem Browser – nur für Adressvorschläge wird der getippte Adresstext abgefragt.
+      Alle Daten bleiben lokal in deinem Browser. Nur für Adressvorschläge wird der getippte Adresstext abgefragt.
     </footer>
   </div>
 
@@ -367,7 +372,7 @@
         <p>Dann erscheinen Straßen in deiner Nähe zuerst. Danach fragt dein Browser einmal nach der Freigabe.</p>
         <ul>
           <li>Genutzt wird nur ein auf ca. 1 km gerundeter Punkt.</li>
-          <li>Er wird beim Suchen an den Adressdienst Photon (komoot, OpenStreetMap-Daten) gesendet – nicht gespeichert, nicht an andere weitergegeben.</li>
+          <li>Er wird beim Suchen an den Adressdienst Photon (komoot, OpenStreetMap-Daten) gesendet, nicht gespeichert und nicht an andere weitergegeben.</li>
           <li>Freiwillig und jederzeit widerrufbar unter <em>Einstellungen → Daten</em>. Ohne Standort sortiert die App nach deinem Firmensitz.</li>
         </ul>
         <p class="modal-legal">Rechtsgrundlage: deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO, § 25 Abs. 1 TDDDG).</p>
@@ -397,13 +402,15 @@
       <button type="button" class="icon-btn" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form class="drawer-body" id="settings-form" novalidate autocomplete="off">
-      <p class="drawer-intro">Diese Angaben erscheinen auf jeder Rechnung. Alles wird automatisch gespeichert.</p>
+      <p class="drawer-intro">Wird automatisch gespeichert.</p>
 
       <section class="settings-card" aria-labelledby="set-company">
         <header class="settings-card-head">
           <h3 id="set-company">Dein Unternehmen</h3>
+          <button type="button" class="info-btn" aria-expanded="false" aria-controls="info-company" aria-label="Info: Unternehmen" title="Mehr erfahren">i</button>
           <span class="settings-status" id="company-status"></span>
         </header>
+        <p class="info-text" id="info-company" hidden>Diese Angaben stehen auf jeder Rechnung. E-Mail und Telefon braucht die E-Rechnung (XRechnung). GmbH, UG, AG, KG, OHG und e. K. müssen zusätzlich Registergericht, Registernummer und gegebenenfalls die Geschäftsführung angeben (§ 35a GmbHG, § 37a HGB, § 80 AktG).</p>
         <div class="logo-row">
           <div class="logo-preview" id="logo-preview"></div>
           <div class="logo-actions">
@@ -412,7 +419,6 @@
               <label class="btn btn-secondary btn-sm" for="logo-input" tabindex="0"><svg class="icon"><use href="#i-image"/></svg><span id="logo-btn-text">Hochladen</span></label>
               <button type="button" class="btn btn-ghost btn-sm" id="logo-remove" hidden>Entfernen</button>
             </div>
-            <span class="field-hint">PNG, JPG, SVG oder WebP</span>
           </div>
           <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
         </div>
@@ -425,7 +431,6 @@
           <label class="field col-city"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
           <label class="field col-zip"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
         </div>
-        <p class="field-hint">E-Mail und Telefon werden für die E-Rechnung benötigt.</p>
         <details class="more" id="legal-more">
           <summary>Rechtsform &amp; Handelsregister</summary>
           <div class="form-grid">
@@ -434,7 +439,6 @@
             <label class="field col-half" data-legal="register"><span class="field-label">Registernummer</span><input class="input mono" data-setting="company.registerNumber" placeholder="z. B. HRB 123456 B"></label>
             <label class="field col-full" data-legal="officers"><span class="field-label" id="officers-label">Geschäftsführer</span><input class="input" data-setting="company.officers" placeholder="Vor- und Nachname, mehrere mit Komma"></label>
           </div>
-          <p class="field-hint">Kapital- und Handelsgesellschaften müssen diese Angaben auf jeder Rechnung nennen (§ 35a GmbHG, § 37a HGB, § 80 AktG).</p>
         </details>
       </section>
 
@@ -473,7 +477,7 @@
         </div>
         <div class="wheel-panel" id="wheel-panel" hidden>
           <div class="wheel" id="wheel">
-            <span class="wheel-handle" id="wheel-handle" tabindex="0" role="slider" aria-label="Farbton und Sättigung – mit den Pfeiltasten ändern"></span>
+            <span class="wheel-handle" id="wheel-handle" tabindex="0" role="slider" aria-label="Farbton und Sättigung, mit den Pfeiltasten ändern"></span>
           </div>
           <div class="wheel-side">
             <label class="field"><span class="field-label">Helligkeit</span><input type="range" class="value-range" id="wheel-value" min="0" max="100" step="1"></label>
@@ -484,11 +488,11 @@
             </div>
           </div>
         </div>
-        <p class="field-hint">Gilt für Titel, Tabellenkopf und Gesamtbetrag. Die Schriftfarbe passt sich automatisch an, damit alles lesbar bleibt.</p>
       </section>
 
       <section class="settings-card" aria-labelledby="set-tax">
-        <header class="settings-card-head"><h3 id="set-tax">Steuer</h3></header>
+        <header class="settings-card-head"><h3 id="set-tax">Steuer</h3><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-tax" aria-label="Info: Steuer" title="Mehr erfahren">i</button></header>
+        <p class="info-text" id="info-tax" hidden>Kleinunternehmer (§ 19 UStG) ist, wer im Vorjahr höchstens 25.000 € und im laufenden Jahr höchstens 100.000 € Umsatz hat (seit 2025). Auf der Rechnung steht dann keine Umsatzsteuer, nur ein Hinweis. Kleinunternehmer müssen keine E-Rechnungen ausstellen, aber empfangen können.</p>
         <div class="form-grid">
           <label class="field col-half"><span class="field-label">Steuernummer <span class="req" aria-hidden="true">*</span></span><input class="input mono" data-setting="company.taxId" placeholder="12/345/67890"></label>
           <label class="field col-half"><span class="field-label">USt-IdNr. <span class="optional">optional</span></span><input class="input mono" data-setting="company.vatId" placeholder="DE123456789" autocapitalize="characters"></label>
@@ -496,7 +500,7 @@
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="kleinunternehmer">
           <span class="switch-track" aria-hidden="true"></span>
-          <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – auf der Rechnung wird keine Umsatzsteuer ausgewiesen. Seit 2025: Umsatz im Vorjahr höchstens 25.000 € und im laufenden Jahr höchstens 100.000 €. Für Kleinunternehmer gilt keine Pflicht, E-Rechnungen auszustellen.</small></span>
+          <span><strong>Kleinunternehmer</strong><small>Keine Umsatzsteuer auf der Rechnung (§ 19 UStG).</small></span>
         </label>
       </section>
 
@@ -507,24 +511,25 @@
           <label class="field col-half"><span class="field-label">Bank</span><input class="input" data-setting="company.bank"></label>
           <label class="field col-half"><span class="field-label">BIC <span class="optional">optional</span></span><input class="input mono" data-setting="company.bic" autocapitalize="characters"></label>
         </div>
-        <p class="field-hint">Für den Zahlungshinweis, den GiroCode und die E-Rechnung.</p>
       </section>
 
       <section class="settings-card" aria-labelledby="set-numbers">
-        <header class="settings-card-head"><h3 id="set-numbers">Rechnungsnummern</h3></header>
+        <header class="settings-card-head"><h3 id="set-numbers">Rechnungsnummern</h3><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-numbers" aria-label="Info: Rechnungsnummern" title="Mehr erfahren">i</button></header>
+        <p class="info-text" id="info-numbers" hidden>Platzhalter: {JJJJ} Jahr, {JJ} Jahr zweistellig, {MM} Monat, {NR} laufende Nummer. Steht ein Jahr im Format, beginnt die Zählung jedes Jahr neu. Jede Nummer wird nur einmal vergeben (§ 14 UStG).</p>
         <div class="form-grid">
           <label class="field col-city"><span class="field-label">Format</span><input class="input mono" data-setting="numberFormat.pattern" spellcheck="false" placeholder="RE-{JJJJ}-{NR}"></label>
           <label class="field col-zip"><span class="field-label">Stellen</span><select class="input" data-setting="numberFormat.digits"><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
         </div>
-        <p class="field-hint">Platzhalter: {JJJJ} Jahr, {JJ} Jahr zweistellig, {MM} Monat, {NR} laufende Nummer. Mit Jahr im Format beginnt die Zählung jedes Jahr neu. Nächste Nummer: <strong class="mono" id="number-preview"></strong></p>
+        <p class="field-hint">Nächste Nummer: <strong class="mono" id="number-preview"></strong></p>
       </section>
 
       <section class="settings-card" aria-labelledby="set-export">
-        <header class="settings-card-head"><h3 id="set-export">Export</h3></header>
+        <header class="settings-card-head"><h3 id="set-export">Export</h3><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-export" aria-label="Info: Export" title="Mehr erfahren">i</button></header>
+        <p class="info-text" id="info-export" hidden>Das PDF wird als PDF/A-3 erzeugt und enthält die E-Rechnung als XML (ZUGFeRD/Factur-X, Profil EN 16931). So ist es für Menschen lesbar und für Buchhaltungsprogramme auswertbar. Rechnungen an Unternehmen müssen ab 2027 (Umsatz über 800.000 €) bzw. 2028 elektronisch sein.</p>
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="zugferd">
           <span class="switch-track" aria-hidden="true"></span>
-          <span><strong>E-Rechnung ins PDF einbetten (ZUGFeRD)</strong><small>Das PDF wird als PDF/A-3 mit eingebetteter XML (Factur-X/ZUGFeRD, Profil EN 16931) erzeugt – Pflichtformat für Rechnungen an Unternehmen ab 2027/2028.</small></span>
+          <span><strong>E-Rechnung ins PDF einbetten (ZUGFeRD)</strong></span>
         </label>
       </section>
 
@@ -534,8 +539,8 @@
       </section>
 
       <section class="settings-card" aria-labelledby="set-data">
-        <header class="settings-card-head"><h3 id="set-data">Daten</h3></header>
-        <p class="field-hint">Alle Daten liegen nur in diesem Browser auf diesem Gerät. Lade regelmäßig eine Sicherung herunter. Abgeschlossene Rechnungen musst du 8 Jahre aufbewahren – lege die PDFs zusätzlich in deiner Buchhaltung ab.</p>
+        <header class="settings-card-head"><h3 id="set-data">Daten</h3><button type="button" class="info-btn" aria-expanded="false" aria-controls="info-data" aria-label="Info: Daten" title="Mehr erfahren">i</button></header>
+        <p class="info-text" id="info-data" hidden>Alle Daten liegen nur in diesem Browser. Lade regelmäßig eine Sicherung herunter und lege die PDFs abgeschlossener Rechnungen zusätzlich in deiner Buchhaltung ab (Aufbewahrung 8 Jahre). Adressvorschläge senden nur den getippten Adresstext an Photon und OpenPLZ (OpenStreetMap). Der Standort wird nur nach deiner Einwilligung genutzt, auf ca. 1 km gerundet, nie gespeichert und beim Ausschalten sofort verworfen (Art. 6 Abs. 1 lit. a DSGVO, § 25 TDDDG).</p>
         <div class="data-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="backup-export"><svg class="icon"><use href="#i-download"/></svg>Sicherung herunterladen</button>
           <label class="btn btn-secondary btn-sm" for="backup-input" tabindex="0"><svg class="icon"><use href="#i-upload"/></svg>Sicherung einspielen</label>
@@ -545,12 +550,12 @@
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="addressLookup">
           <span class="switch-track" aria-hidden="true"></span>
-          <span><strong>Adressvorschläge</strong><small>Beim Tippen von Straße und PLZ wird nur der Adresstext an OpenStreetMap-Dienste (Photon, OpenPLZ) gesendet.</small></span>
+          <span><strong>Adressvorschläge</strong><small>Sendet nur den Adresstext an OpenStreetMap-Dienste.</small></span>
         </label>
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="geoBias">
           <span class="switch-track" aria-hidden="true"></span>
-          <span><strong>Standort für Adressvorschläge</strong><small>Straßen in deiner Nähe zuerst. Mit dem Einschalten willigst du ein: Ein auf ca. 1 km gerundeter Standort wird beim Suchen an Photon gesendet, aber nie gespeichert. Ausschalten widerruft die Einwilligung.</small></span>
+          <span><strong>Standort für Adressvorschläge</strong><small>Nahe Straßen zuerst. Einschalten gilt als Einwilligung.</small></span>
         </label>
         <div class="data-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="load-demo">Beispieldaten ansehen</button>
@@ -595,6 +600,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=26"></script>
+  <script type="module" src="js/app.js?v=27"></script>
 </body>
 </html>

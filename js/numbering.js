@@ -15,7 +15,7 @@ export function numberPatternError(pattern) {
   const p = String(pattern ?? '');
   if ((p.match(/\{NR\}/g) ?? []).length !== 1) return 'Das Format braucht genau einmal {NR} für die laufende Nummer.';
   const rest = p.replace(TOKENS, '');
-  if (/[{}]/.test(rest)) return 'Unbekannter Platzhalter – erlaubt sind {JJJJ}, {JJ}, {MM} und {NR}.';
+  if (/[{}]/.test(rest)) return 'Unbekannter Platzhalter. Erlaubt sind {JJJJ}, {JJ}, {MM} und {NR}.';
   if (!/^[A-Za-z0-9\-_/.]*$/.test(rest)) return 'Erlaubt sind Buchstaben, Ziffern und - _ / .';
   if (p.length > 30) return 'Das Format ist zu lang.';
   return null;
@@ -37,7 +37,7 @@ function seriesRegex(pattern, isoDate) {
 }
 
 /**
- * Nächste freie Nummer – die höchste vorhandene Nummer der Serie + 1 (numerisch, nicht als Text sortiert:
+ * Nächste freie Nummer: die höchste vorhandene Nummer der Serie + 1 (numerisch, nicht als Text sortiert:
  * nach RE-2026-9999 kommt RE-2026-10000).
  */
 export function nextInvoiceNumber(existingNumbers, { pattern = DEFAULT_NUMBER_FORMAT.pattern, digits = DEFAULT_NUMBER_FORMAT.digits, date } = {}) {
@@ -52,11 +52,11 @@ export function nextInvoiceNumber(existingNumbers, { pattern = DEFAULT_NUMBER_FO
   return usable.replace(TOKENS, (_, t) => (t === 'NR' ? String(max + 1).padStart(width, '0') : p[t] ?? ''));
 }
 
-/** Laufende Nummer einer Rechnungsnummer innerhalb ihrer Serie (für die Reihenfolge-Prüfung) – oder null. */
+/** Laufende Nummer einer Rechnungsnummer innerhalb ihrer Serie (für die Reihenfolge-Prüfung): oder null. */
 export function sequenceOf(number, { pattern = DEFAULT_NUMBER_FORMAT.pattern, date } = {}) {
   const hit = seriesRegex(numberPatternError(pattern) ? DEFAULT_NUMBER_FORMAT.pattern : pattern, date).exec(String(number ?? ''));
   return hit ? Number(hit[1]) : null;
 }
 
-/** Vergleich ohne Leerzeichen und Groß-/Kleinschreibung – „re-2026-1 “ und „RE-2026-1“ sind dieselbe Nummer. */
+/** Vergleich ohne Leerzeichen und Groß-/Kleinschreibung: „re-2026-1 “ und „RE-2026-1“ sind dieselbe Nummer. */
 export const sameNumber = (a, b) => String(a ?? '').trim().toUpperCase() === String(b ?? '').trim().toUpperCase();

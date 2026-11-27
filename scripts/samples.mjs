@@ -1,5 +1,5 @@
 /**
- * Fiktive Beispieldaten – für die Demo, die Unit-Tests und die E-Rechnungs-Prüfung in der CI.
+ * Fiktive Beispieldaten: für die Demo, die Unit-Tests und die E-Rechnungs-Prüfung in der CI.
  * Die IBAN ist die offizielle Muster-IBAN aus der Bankendokumentation, kein echtes Konto.
  */
 export const sampleSettings = () => ({

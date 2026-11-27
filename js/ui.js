@@ -1,4 +1,4 @@
-/** Kleine DOM-Helfer, Hinweis-Toast und Bestätigungsdialog – von allen Oberflächen-Modulen genutzt. */
+/** Kleine DOM-Helfer, Hinweis-Toast und Bestätigungsdialog: von allen Oberflächen-Modulen genutzt. */
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -93,3 +93,16 @@ export function downloadBlob(blob, name) {
   setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
   return url;
 }
+
+// ---------- Info-Knopf „i“ ----------
+/** Ein Klick auf .info-btn blendet den Text ein oder aus, auf den aria-controls zeigt. Gilt seitenweit. */
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.info-btn');
+  if (!btn) return;
+  e.preventDefault();
+  const target = document.getElementById(btn.getAttribute('aria-controls'));
+  if (!target) return;
+  const open = btn.getAttribute('aria-expanded') !== 'true';
+  btn.setAttribute('aria-expanded', String(open));
+  target.hidden = !open;
+});

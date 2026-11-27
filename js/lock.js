@@ -5,7 +5,7 @@
  * Kleinunternehmer-Status, Design. Spätere Änderungen in den Einstellungen gelten nur für neue Rechnungen.
  * Korrekturen laufen über eine neue Rechnung (Kopie oder Stornorechnung) mit eigener Nummer.
  */
-import { formatDate } from './dates.js?v=26';
+import { formatDate } from './dates.js?v=27';
 
 /** Ist die Rechnung abgeschlossen (festgeschrieben)? */
 export const isLocked = (inv) => inv?.status === 'erstellt';
@@ -20,7 +20,7 @@ export function finalizeInvoice(inv, settings, { design = null, now = Date.now()
 /** Einstellungen, mit denen eine Rechnung dargestellt/exportiert wird: eingefroren oder aktuell. */
 export const settingsFor = (inv, current) => (isLocked(inv) && inv.snapshot ? { ...current, ...inv.snapshot } : current);
 
-/** Kopie als neuer Entwurf mit neuer Nummer – das Original bleibt unverändert. */
+/** Kopie als neuer Entwurf mit neuer Nummer: das Original bleibt unverändert. */
 export function copyAsDraft(inv, { id, number, date }) {
   const { snapshot, lockedAt, ...rest } = structuredClone(inv);
   return { ...rest, id, number, date, status: 'entwurf', dueDate: inv.paymentDays === 'custom' ? '' : rest.dueDate, updatedAt: Date.now() };

@@ -1,12 +1,14 @@
 /**
  * Seitenfenster „Einstellungen“: Firmendaten, Rechtsform, Steuer, Bank, Design, Nummernformat, Kunden, Daten.
  */
-import { LEGAL_FORMS, guessLegalForm, numberPatternError, isLocked } from './invoice.js?v=26';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, hsvToHex, hexToHsv } from './color.js?v=26';
-import { $, $$, el, icon, getPath, setPath, fillSelect, toast, confirmDialog } from './ui.js?v=26';
-import { state, settings, design, nextNumber, seed, demo, normalize, persist, save, newInvoice } from './store.js?v=26';
-import { applyDesign } from './preview.js?v=26';
-import { exportBackup, importBackup } from './export.js?v=26';
+import {
+  LEGAL_FORMS, guessLegalForm, numberPatternError, isLocked, countryOptions, nameError, streetError, checkZip, cityError, isValidEmail, vatIdError, leitwegIdError,
+} from './invoice.js?v=27';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, hsvToHex, hexToHsv } from './color.js?v=27';
+import { $, $$, el, icon, getPath, setPath, fillSelect, toast, confirmDialog } from './ui.js?v=27';
+import { state, settings, design, nextNumber, seed, demo, normalize, persist, save, newInvoice } from './store.js?v=27';
+import { applyDesign } from './preview.js?v=27';
+import { exportBackup, importBackup } from './export.js?v=27';
 
 /**
  * @param app  Rückrufe in die Hauptansicht: update, renderItems, renderBankSummary, renderFieldErrors, touch,
@@ -30,7 +32,7 @@ export function initSettingsPanel(app) {
   // ---------- Nummernformat ----------
   function renderNumberPreview() {
     const problem = numberPatternError(settings().numberFormat?.pattern);
-    $('#number-preview').textContent = problem ? '–' : nextNumber();
+    $('#number-preview').textContent = problem ? '-' : nextNumber();
     const input = $('[data-setting="numberFormat.pattern"]');
     input.setAttribute('aria-invalid', String(Boolean(problem)));
     input.title = problem ?? '';
@@ -199,21 +201,99 @@ export function initSettingsPanel(app) {
   });
   $('#logo-remove').addEventListener('click', () => { settings().company.logo = ''; renderLogo(); app.update(); });
 
-  // ---------- Gespeicherte Kunden ----------
+  // ---------- Gespeicherte Kunden: nur hier bearbeitbar ----------
+  let editingCustomer = null;
+  const countries = countryOptions();
+  const CUSTOMER_FIELDS = [
+    { key: 'name', label: 'Name / Firma', check: (v) => (v.trim() ? nameError(v) : 'Bitte den Namen angeben.') },
+    { key: 'street', label: 'Straße und Hausnummer', check: (v) => (v.trim() ? streetError(v) : 'Bitte Straße und Hausnummer angeben.') },
+    { key: 'zip', label: 'PLZ', half: true, check: (v, c) => checkZip(v, c.country) },
+    { key: 'city', label: 'Ort', half: true, check: (v) => (v.trim() ? cityError(v) : 'Bitte den Ort angeben.') },
+    { key: 'country', label: 'Land', select: true },
+    { key: 'email', label: 'E-Mail', type: 'email', check: (v) => (v.trim() && !isValidEmail(v) ? 'Diese E-Mail-Adresse ist ungültig.' : null) },
+    { key: 'vatId', label: 'USt-IdNr.', mono: true, check: (v) => (v.trim() ? vatIdError(v) : null) },
+    { key: 'reference', label: 'Käuferreferenz / Leitweg-ID', mono: true, check: (v, c) => ((c.isPublic || /^\d{2,12}-/.test(v.trim())) && v.trim() ? leitwegIdError(v) : null) },
+  ];
+
+  /** Kunde ändern und in alle offenen Entwürfe dieses Kunden übernehmen (abgeschlossene Rechnungen bleiben, wie sie sind). */
+  function updateCustomer(customer, key, value) {
+    customer[key] = value;
+    for (const inv of state.store.invoices) {
+      if (!isLocked(inv) && inv.customer?.id === customer.id) inv.customer = { ...inv.customer, ...customer };
+    }
+    app.onCustomersChanged();
+  }
+
+  function customerEditor(c) {
+    const box = el('div', { className: 'customer-edit form-grid' });
+    for (const f of CUSTOMER_FIELDS) {
+      const input = f.select
+        ? el('select', { className: 'input' })
+        : el('input', { className: `input${f.mono ? ' mono' : ''}`, type: f.type ?? 'text', value: c[f.key] ?? '' });
+      if (f.select) {
+        fillSelect(input, countries.map((g) => ({ label: g.label, options: g.options.map((o) => ({ value: o.code, text: o.name })) })));
+        input.value = c.country || 'DE';
+      }
+      const error = el('p', { className: 'field-error', hidden: true });
+      const check = () => {
+        const problem = f.check?.(input.value, c);
+        error.textContent = problem ?? '';
+        error.hidden = !problem;
+        input.toggleAttribute('aria-invalid', Boolean(problem));
+      };
+      input.addEventListener('input', () => { updateCustomer(c, f.key, input.value); if (!error.hidden) check(); });
+      input.addEventListener('change', check);
+      input.addEventListener('blur', check);
+      box.append(el('label', { className: `field ${f.half ? 'col-half' : 'col-full'}` }, el('span', { className: 'field-label', textContent: f.label }), input, error));
+      if (c[f.key]) check();
+    }
+    const pub = el('input', { type: 'checkbox', checked: Boolean(c.isPublic) });
+    pub.setAttribute('role', 'switch');
+    pub.addEventListener('change', () => updateCustomer(c, 'isPublic', pub.checked));
+    box.append(el('label', { className: 'switch col-full' }, pub, el('span', { className: 'switch-track', ariaHidden: 'true' }),
+      el('span', {}, el('strong', { textContent: 'Öffentlicher Auftraggeber' }), el('small', { textContent: 'Leitweg-ID ist Pflicht.' }))));
+    return box;
+  }
+
   function renderCustomerList() {
     const list = $('#customer-list');
-    list.replaceChildren(...(state.store.customers.length
-      ? state.store.customers.map((c) => el('li', {},
-        el('span', {}, el('strong', { textContent: c.name }), el('small', { textContent: [c.zip, c.city].filter(Boolean).join(' ') || c.email })),
-        el('button', {
-          type: 'button', className: 'icon-btn danger', title: 'Kunde entfernen', ariaLabel: `${c.name} entfernen`,
-          onclick: () => {
-            state.store.customers = state.store.customers.filter((x) => x.id !== c.id);
-            renderCustomerList();
-            app.update();
-          },
-        }, icon('trash'))))
-      : [el('li', { className: 'empty', textContent: 'Noch keine Kunden gespeichert.' })]));
+    if (!state.store.customers.length) {
+      list.replaceChildren(el('li', { className: 'empty', textContent: 'Noch keine Kunden gespeichert. Speichere einen Kunden direkt in der Rechnung.' }));
+      return;
+    }
+    list.replaceChildren(...state.store.customers.map((c) => {
+      const editing = editingCustomer === c.id;
+      const li = el('li', { className: editing ? 'is-editing' : '' },
+        el('div', { className: 'customer-row' },
+          el('span', {}, el('strong', { textContent: c.name || 'Ohne Namen' }), el('small', { textContent: [c.zip, c.city].filter(Boolean).join(' ') || c.email })),
+          el('div', { className: 'row-actions' },
+            el('button', {
+              type: 'button', className: 'icon-btn', title: editing ? 'Fertig' : 'Bearbeiten', ariaLabel: editing ? `${c.name} fertig bearbeitet` : `${c.name} bearbeiten`, ariaExpanded: String(editing),
+              onclick: () => { editingCustomer = editing ? null : c.id; renderCustomerList(); },
+            }, icon(editing ? 'check' : 'edit')),
+            el('button', {
+              type: 'button', className: 'icon-btn danger', title: 'Kunde entfernen', ariaLabel: `${c.name} entfernen`,
+              onclick: () => {
+                const before = structuredClone(state.store.customers);
+                state.store.customers = state.store.customers.filter((x) => x.id !== c.id);
+                renderCustomerList();
+                app.onCustomersChanged();
+                toast(`„${c.name}“ entfernt`, { label: 'Rückgängig', run: () => { state.store.customers = before; renderCustomerList(); app.onCustomersChanged(); } });
+              },
+            }, icon('trash')))),
+        editing && customerEditor(c));
+      li.dataset.customer = c.id;
+      return li;
+    }));
+  }
+
+  /** Einstellungen öffnen und direkt einen Kunden bearbeiten. */
+  function openCustomer(id) {
+    editingCustomer = id;
+    open();
+    const row = $(`#customer-list li[data-customer="${CSS.escape(id)}"]`);
+    row?.scrollIntoView({ block: 'start' });
+    row?.querySelector('.customer-edit input')?.focus();
   }
 
   // ---------- Daten: Sicherung, Beispieldaten, Löschen ----------
@@ -247,7 +327,7 @@ export function initSettingsPanel(app) {
     const ok = await confirmDialog({
       title: 'Entwürfe und Kunden löschen?',
       text: [
-        `${locked.length} abgeschlossene ${locked.length === 1 ? 'Rechnung bleibt' : 'Rechnungen bleiben'} erhalten – ausgestellte Rechnungen müssen 8 Jahre aufbewahrt werden.`,
+        `${locked.length} abgeschlossene ${locked.length === 1 ? 'Rechnung bleibt' : 'Rechnungen bleiben'} erhalten. Ausgestellte Rechnungen müssen 8 Jahre aufbewahrt werden.`,
         'Gelöscht werden alle Entwürfe und die Kundenliste. Firmendaten und Einstellungen bleiben, weil die abgeschlossenen Rechnungen darauf verweisen.',
       ],
       confirm: 'Entwürfe löschen',
@@ -300,9 +380,13 @@ export function initSettingsPanel(app) {
     const key = t.dataset.setting;
     if (!key) return;
     if (key === 'geoBias') {
-      // Einschalten = Einwilligung (der Text steht direkt am Schalter); Ausschalten = Widerruf
-      if (t.checked) app.requestGeo();
-      else app.revokeGeo();
+      // Einschalten = Einwilligung (der Text steht direkt am Schalter); Ausschalten = Widerruf.
+      // Der Schalter springt erst auf „an“, wenn der Browser den Standort wirklich freigibt.
+      if (t.checked) {
+        t.checked = false;
+        t.disabled = true;
+        app.requestGeo().finally(() => { t.disabled = false; syncGeoSwitch(); });
+      } else app.revokeGeo();
       return;
     }
     setPath(settings(), key, t.type === 'checkbox' ? t.checked : key === 'numberFormat.digits' ? Number(t.value) : t.value);
@@ -312,6 +396,12 @@ export function initSettingsPanel(app) {
     app.renderBankSummary();
     app.update();
   });
+
+  /** Schalter „Standort“ immer nach dem tatsächlichen Zustand richten. */
+  function syncGeoSwitch() {
+    const sw = $('[data-setting="geoBias"]');
+    if (sw && !sw.disabled) sw.checked = Boolean(settings().geoBias);
+  }
 
   function renderCompanyStatus() {
     const missing = app.companyMissing().length;
@@ -349,7 +439,7 @@ export function initSettingsPanel(app) {
     }
   }
 
-  return { open, fill, renderCompanyStatus, renderCustomerList, renderNumberPreview };
+  return { open, openCustomer, fill, renderCompanyStatus, renderCustomerList, renderNumberPreview, syncGeoSwitch };
 }
 
 /** Verkleinert Logos auf max. 600 × 240 px, damit sie in den lokalen Speicher passen. */

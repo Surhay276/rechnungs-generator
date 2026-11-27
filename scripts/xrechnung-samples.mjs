@@ -1,5 +1,5 @@
 /**
- * Erzeugt Beispiel-E-Rechnungen (XRechnung 3.0, Syntax CII) für die Prüfung mit dem KoSIT-Validator –
+ * Erzeugt Beispiel-E-Rechnungen (XRechnung 3.0, Syntax CII) für die Prüfung mit dem KoSIT-Validator:
  * eine Datei je fachlichem Sonderfall. Optional zusätzlich ZUGFeRD-PDFs (PDF/A-3) zur Prüfung mit veraPDF.
  *
  * Aufruf: node scripts/xrechnung-samples.mjs <zielordner> [--pdf]

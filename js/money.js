@@ -1,12 +1,12 @@
 /**
- * Zahlen und Geldbeträge – ohne Gleitkomma-Rundungsfehler.
+ * Zahlen und Geldbeträge: ohne Gleitkomma-Rundungsfehler.
  *
  * Eingaben werden als Text zerlegt und als ganze Zahlen weitergeführt:
  * Beträge in Cent, Einzelpreise und Mengen in Zehntausendsteln (4 Nachkommastellen, wie EN 16931 erlaubt).
  * Gerundet wird kaufmännisch: halbe Werte immer vom Nullpunkt weg (1,005 → 1,01; −1,005 → −1,01).
  */
 
-/** Obergrenzen – verhindern Exponentialschreibweise und Genauigkeitsverlust jenseits von 2^53. */
+/** Obergrenzen: verhindern Exponentialschreibweise und Genauigkeitsverlust jenseits von 2^53. */
 export const LIMITS = Object.freeze({
   quantity: 9_999_999, // Menge je Position
   unitPrice: 99_999_999, // Einzelpreis in Euro
@@ -19,7 +19,7 @@ export const QUANTITY_SCALE = 10_000; // Mengen: 4 Nachkommastellen
 const pow10 = (n) => 10n ** BigInt(n);
 const abs = (n) => (n < 0n ? -n : n);
 
-/** Ganzzahlige Division (BigInt) mit kaufmännischer Rundung – halbe Werte vom Nullpunkt weg. */
+/** Ganzzahlige Division (BigInt) mit kaufmännischer Rundung: halbe Werte vom Nullpunkt weg. */
 export function roundDiv(a, b) {
   let [x, y] = [BigInt(a), BigInt(b)];
   if (y === 0n) throw new Error('Division durch null');
@@ -95,7 +95,7 @@ export function toQuantityUnits(value) {
 /** Menge als Zahl (z. B. 1,5 Stunden → 1.5). */
 export const toQuantity = (value) => toQuantityUnits(value) / QUANTITY_SCALE;
 
-/** Prozentwert 0–100 mit bis zu vier Nachkommastellen: „2,5“ → 2.5 */
+/** Prozentwert 0-100 mit bis zu vier Nachkommastellen: „2,5“ → 2.5 */
 export function toPercent(value) {
   let units;
   try { units = parseScaled(value, 4, 'Prozentwert'); } catch { throw new Error(`Ungültiger Prozentwert: ${value}`); }
@@ -117,7 +117,7 @@ function currencyFormat(currency, maxDigits = 2) {
 export const formatMoney = (cents, currency = 'EUR') => currencyFormat(currency).format((cents || 0) / 100);
 export const formatEUR = (cents) => formatMoney(cents, 'EUR');
 
-/** Einzelpreis (1/10.000) → „0,015 €“ / „12,50 €“ – mindestens zwei, höchstens vier Nachkommastellen. */
+/** Einzelpreis (1/10.000) → „0,015 €“ / „12,50 €“: mindestens zwei, höchstens vier Nachkommastellen. */
 export const formatPrice = (units, currency = 'EUR') => currencyFormat(currency, 4).format((units || 0) / PRICE_SCALE);
 
 /** Skalierte Ganzzahl → Dezimaltext ohne Rundungsfehler und ohne Exponent („1234.50“, „-0.0150“). */

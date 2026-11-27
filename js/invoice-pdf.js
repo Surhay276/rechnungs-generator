@@ -1,9 +1,9 @@
 /**
- * Setzt die Rechnung als PDF – Maße, Schriftgrößen und Abstände entsprechen der Vorschau
+ * Setzt die Rechnung als PDF: Maße, Schriftgrößen und Abstände entsprechen der Vorschau
  * (DIN-5008-nahe Ränder: oben 15 mm, rechts 20 mm, unten 12 mm, links 25 mm).
  * Mehrseitige Rechnungen: Tabellenkopf wiederholt sich, Fußzeile und Seitenzahl auf jeder Seite.
  */
-import { PdfDocument, MM, wrapText } from './pdf.js?v=26';
+import { PdfDocument, MM, wrapText } from './pdf.js?v=27';
 
 export const FACTUR_X_FILE = 'factur-x.xml';
 
@@ -36,18 +36,18 @@ const LH = 1.45;
 
 /**
  * @param view   Ergebnis von buildInvoiceView()
- * @param fonts  { regular, semibold, bold } – TrueType-Dateien als ArrayBuffer/Uint8Array
- * @param logo   { width, height, rgb, alpha } – Rohpixel des Logos (optional)
- * @param iccProfile  sRGB-Farbprofil – mit Profil entsteht ein PDF/A-3b (Langzeitarchiv)
- * @param einvoice    { xml, conformance } – eingebettete E-Rechnung (ZUGFeRD 2 / Factur-X), setzt iccProfile voraus
- * @returns Promise<Uint8Array> – die fertige PDF-Datei
+ * @param fonts  { regular, semibold, bold }: TrueType-Dateien als ArrayBuffer/Uint8Array
+ * @param logo   { width, height, rgb, alpha }: Rohpixel des Logos (optional)
+ * @param iccProfile  sRGB-Farbprofil: mit Profil entsteht ein PDF/A-3b (Langzeitarchiv)
+ * @param einvoice    { xml, conformance }: eingebettete E-Rechnung (ZUGFeRD 2 / Factur-X), setzt iccProfile voraus
+ * @returns Promise<Uint8Array>: die fertige PDF-Datei
  */
 export async function createInvoicePdf(view, { fonts, logo = null, date = new Date(), iccProfile = null, einvoice = null }) {
   const doc = new PdfDocument();
   doc.info = { title: `${view.title} ${view.number}`, author: view.companyName, subject: `${view.title} ${view.number}`, creator: 'Rechnungsgenerator', date };
   if (iccProfile) doc.pdfa = { iccProfile, xmp: einvoice ? [facturXmp(einvoice.conformance)] : [] };
   if (einvoice) {
-    if (!iccProfile) throw new Error('ZUGFeRD braucht PDF/A-3 – bitte das Farbprofil mitgeben.');
+    if (!iccProfile) throw new Error('ZUGFeRD braucht PDF/A-3. Bitte das Farbprofil mitgeben.');
     doc.attach({ name: FACTUR_X_FILE, data: einvoice.xml, mime: 'text/xml', description: 'E-Rechnung (ZUGFeRD / Factur-X, EN 16931)', relationship: 'Alternative', modified: date });
   }
   const R = doc.addFont('Inter-Regular', fonts.regular);
@@ -62,7 +62,7 @@ export async function createInvoicePdf(view, { fonts, logo = null, date = new Da
   const pageBottom = doc.height - 12 * MM;
 
   // ---------- Text-Helfer ----------
-  /** Abstand von der Oberkante der Zeile bis zur Grundlinie – wie CSS (halber Durchschuss oben und unten). */
+  /** Abstand von der Oberkante der Zeile bis zur Grundlinie: wie CSS (halber Durchschuss oben und unten). */
   const baseline = (font, size, lh) => ((lh - (font.ascent - font.descent) / font.unitsPerEm) * size) / 2 + (font.ascent / font.unitsPerEm) * size;
   /** Zeichnet umbrochenen Text ab Oberkante y, gibt die Höhe zurück. */
   function block(text, x, y, width, { font = R, size = BASE, lh = LH, color = INK, align = 'left', draw = true, nowrap = false } = {}) {
@@ -295,7 +295,7 @@ export async function createInvoicePdf(view, { fonts, logo = null, date = new Da
       });
       fx += footCols[c] + footGap;
     });
-    // Seitenzahl im unteren Rand – nimmt dem Inhalt keinen Platz weg
+    // Seitenzahl im unteren Rand: nimmt dem Inhalt keinen Platz weg
     if (total > 1) block(`Seite ${i + 1} von ${total}`, left, pageBottom + 3 * MM, W, { size: 7, color: GRAY, align: 'right' });
   });
 

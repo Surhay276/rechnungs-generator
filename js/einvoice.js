@@ -2,15 +2,15 @@
  * E-Rechnung nach EN 16931 in der Syntax UN/CEFACT CII (Cross Industry Invoice D16B).
  *
  * Eine Quelle für zwei Formate:
- * - XRechnung 3.0 (profile „xrechnung“) – als eigene XML-Datei, z. B. für Behörden
- * - ZUGFeRD 2 / Factur-X, Profil EN 16931 (profile „en16931“) – eingebettet ins PDF/A-3
+ * - XRechnung 3.0 (profile „xrechnung“): als eigene XML-Datei, z. B. für Behörden
+ * - ZUGFeRD 2 / Factur-X, Profil EN 16931 (profile „en16931“): eingebettet ins PDF/A-3
  */
-import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=26';
-import { invoiceTotals, skontoInfo } from './calc.js?v=26';
-import { dueDate, servicePeriod, formatDate } from './dates.js?v=26';
-import { kindOf, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=26';
-import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=26';
-import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=26';
+import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=27';
+import { invoiceTotals, skontoInfo } from './calc.js?v=27';
+import { dueDate, servicePeriod, formatDate } from './dates.js?v=27';
+import { kindOf, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=27';
+import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=27';
+import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=27';
 
 export const PROFILES = Object.freeze({
   xrechnung: {
@@ -60,10 +60,12 @@ function exemption(group, inv, ku) {
   return { text: type.note, code: type.code };
 }
 
-/** Umsatzsteuer in Euro bei Fremdwährungsrechnungen (§ 16 Abs. 6 UStG, BT-111). */
-export function taxInEUR(taxCents, fxRate) {
-  return Number(roundDiv(BigInt(taxCents) * parseScaled(fxRate, 6, 'Kurs'), 1_000_000n));
+/** Betrag in Euro umrechnen (Kurs = Euro je Einheit der Fremdwährung, bis zu 6 Nachkommastellen). */
+export function centsInEUR(cents, fxRate) {
+  return Number(roundDiv(BigInt(cents) * parseScaled(fxRate, 6, 'Kurs'), 1_000_000n));
 }
+/** Umsatzsteuer in Euro bei Fremdwährungsrechnungen (§ 16 Abs. 6 UStG, BT-111). */
+export const taxInEUR = centsInEUR;
 
 function address(a) {
   return `<ram:PostalTradeAddress>${tag('PostcodeCode', a.zip)}${tag('LineOne', a.street)}${tag('CityName', a.city)}`

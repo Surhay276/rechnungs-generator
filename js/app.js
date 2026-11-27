@@ -5,18 +5,19 @@
 import {
   UNITS, TAX_TYPES, TAX_TYPE_GROUPS, CURRENCIES, countryOptions, kindOf, isLocked, finalizeInvoice, checkInvoice, isError,
   validateXRechnungFields, validateInvoiceFields, toXRechnung, toPriceUnits, priceToInput, convertPrice, toCents, centsToInput,
-  lineNet, formatMoney, formatDate, dueDate, addDays, isValidIBAN, formatIBAN, taxKeyOf,
-} from './invoice.js?v=26';
-import { $, $$, el, icon, getPath, setPath, fillSelect, toast, ask, prefersReducedMotion } from './ui.js?v=26';
+  lineNet, formatMoney, formatDate, dueDate, addDays, isValidIBAN, formatIBAN, taxKeyOf, parseScaled, todayIso,
+} from './invoice.js?v=27';
+import { $, $$, el, icon, getPath, setPath, fillSelect, toast, ask, prefersReducedMotion } from './ui.js?v=27';
 import {
   state, settings, invoice, invSettings, validationContext, totalsOf, design, emptyCustomer, emptyItem, newId, save, persist, requestPersistentStorage,
-} from './store.js?v=26';
-import { renderPreview, setupZoom } from './preview.js?v=26';
-import { viewOf, buildDocuments, storeOriginal, originalOf, openPendingTab, deliverPdf, deliverXml } from './export.js?v=26';
-import { saveOriginal } from './originals.js?v=26';
-import { initSettingsPanel } from './settings-panel.js?v=26';
-import { initArchivePanel } from './archive-panel.js?v=26';
-import { attachAddressLookup, locatePlace } from './address.js?v=26';
+} from './store.js?v=27';
+import { renderPreview, setupZoom } from './preview.js?v=27';
+import { viewOf, buildDocuments, storeOriginal, originalOf, openPendingTab, deliverPdf, deliverXml } from './export.js?v=27';
+import { saveOriginal } from './originals.js?v=27';
+import { initSettingsPanel } from './settings-panel.js?v=27';
+import { initArchivePanel } from './archive-panel.js?v=27';
+import { attachAddressLookup, locatePlace } from './address.js?v=27';
+import { fetchRate } from './fx.js?v=27';
 
 const form = $('#invoice-form');
 const itemsBox = $('#items');
@@ -88,6 +89,7 @@ function fillForm() {
   renderPaymentChips();
   renderServiceChips();
   renderCurrency();
+  if ((inv.currency || 'EUR') !== 'EUR' && !inv.fxRate && !isLocked(inv)) refreshRate();
   renderPriceMode();
   renderItems();
   renderPrepayments();
@@ -115,8 +117,24 @@ function applyLock() {
     renderBankSummary(); // GiroCode-Schalter wieder nach IBAN richten
     renderItems();
   }
+  renderCustomerLock();
 }
 $('#locked-copy').addEventListener('click', () => archive.duplicate(invoice().id));
+
+/** Gespeicherte Kunden werden nur in den Einstellungen bearbeitet – in der Rechnung sind ihre Felder gesperrt. */
+const isSavedCustomer = (k) => Boolean(k?.id) && state.store.customers.some((c) => c.id === k.id);
+function renderCustomerLock() {
+  const inv = invoice();
+  const saved = isSavedCustomer(inv.customer);
+  const locked = isLocked(inv);
+  for (const input of $$('[data-field^="customer."]', form)) {
+    if ('locked' in input.dataset) continue; // abgeschlossene Rechnung: applyLock entscheidet
+    input.disabled = saved;
+  }
+  $('#save-customer-switch').hidden = saved;
+  $('#saved-customer').hidden = !saved || locked;
+}
+$('#edit-customer').addEventListener('click', () => settingsPanel.openCustomer(invoice().customer.id));
 $('#locked-storno').addEventListener('click', () => archive.storno(invoice().id));
 
 form.addEventListener('input', (e) => {
@@ -126,11 +144,12 @@ form.addEventListener('input', (e) => {
   const inv = invoice();
   const value = t.type === 'checkbox' ? t.checked : key === 'skonto.days' ? Number(t.value) : t.value;
   setPath(inv, key, value);
-  if (key.startsWith('customer.')) syncSavedCustomer();
   if (key === 'skonto.enabled') $('#skonto-fields').hidden = !t.checked;
   if (key === 'date' || key === 'dueDate') renderPaymentChips();
   if (key === 'kind') onKindChange();
-  if (key === 'currency') renderCurrency();
+  if (key === 'currency') Object.assign(inv, { fxRate: '', fxDate: '' }); // Kurs gehört zur Währung: nie den alten weiterverwenden
+  if (key === 'currency' || key === 'date') { inv.fxManual = false; refreshRate(); }
+  if (key === 'fxRate') { inv.fxManual = true; inv.fxDate = ''; renderCurrency(); }
   if (key === 'customer.isPublic' && t.checked) touched.add('customer.reference');
   update();
 });
@@ -172,11 +191,6 @@ $('#customer-select').addEventListener('change', (e) => {
   update();
   if (!chosen) $('[data-field="customer.name"]').focus();
 });
-function syncSavedCustomer() {
-  const k = invoice().customer;
-  const saved = state.store.customers.find((c) => c.id === k.id);
-  if (saved) Object.assign(saved, k);
-}
 $('#save-customer').addEventListener('change', (e) => {
   const k = invoice().customer;
   if (e.target.checked) {
@@ -194,6 +208,7 @@ $('#save-customer').addEventListener('change', (e) => {
     toast('Aus der Kundenliste entfernt');
   }
   renderCustomerSelect();
+  renderCustomerLock();
   settingsPanel.renderCustomerList();
   save(renderSaveState);
 });
@@ -245,34 +260,89 @@ $('#service-chips').addEventListener('click', (e) => {
   if (inv.serviceMode !== 'same') $('[data-field="serviceFrom"]').focus();
 });
 
-// ---------- Währung ----------
-function renderCurrency() {
-  const cur = invoice().currency || 'EUR';
-  $('#fx-field').hidden = cur === 'EUR';
+// ---------- Währung: EZB-Kurs automatisch zum Rechnungsdatum ----------
+let rateRequest = 0;
+function validRate(value) {
+  try { return parseScaled(value, 6, 'Kurs') > 0n; } catch { return false; }
+}
+function renderCurrency(status) {
+  const inv = invoice();
+  const cur = inv.currency || 'EUR';
+  const foreign = cur !== 'EUR';
+  $('#fx-field').hidden = !foreign;
+  $('#fx-row').hidden = !foreign;
   $('#fx-label').textContent = `Kurs: 1 ${cur} = … EUR`;
-  if (cur !== 'EUR') $('#currency-more').open = true;
+  const input = $('[data-field="fxRate"]');
+  if (document.activeElement !== input) input.value = inv.fxRate ?? '';
+  input.readOnly = !inv.fxManual; // automatisch geladene Kurse nicht versehentlich überschreiben
+  $('#fx-status').textContent = status
+    ?? (inv.fxManual ? 'Kurs manuell eingetragen.' : inv.fxDate ? `EZB-Referenzkurs vom ${formatDate(inv.fxDate)}.` : '');
+  $('#fx-reload').hidden = !foreign || isLocked(inv);
+  if (foreign) $('#currency-more').open = true;
   renderBankSummary();
 }
+/** Kurs für Währung und Rechnungsdatum laden (nur Entwürfe; abgeschlossene Rechnungen behalten ihren Kurs). */
+async function refreshRate() {
+  const inv = invoice();
+  const cur = inv.currency || 'EUR';
+  if (isLocked(inv) || cur === 'EUR') { renderCurrency(); return; }
+  const token = ++rateRequest;
+  renderCurrency('Kurs wird geladen …');
+  try {
+    const { rate, date } = await fetchRate(cur, inv.date, { today: todayIso() });
+    if (token !== rateRequest || invoice() !== inv) return;
+    Object.assign(inv, { fxRate: rate, fxDate: date, fxManual: false });
+    renderCurrency();
+    update();
+  } catch {
+    if (token !== rateRequest || invoice() !== inv) return;
+    Object.assign(inv, { fxManual: true, fxDate: '' });
+    renderCurrency('Kurs konnte nicht geladen werden. Bitte manuell eintragen.');
+    update();
+  }
+}
+$('#fx-reload').addEventListener('click', () => { invoice().fxManual = false; refreshRate(); });
 
-// ---------- Adressvorschläge (Straße → PLZ + Ort, PLZ → Ort) – abschaltbar in den Einstellungen ----------
+// ---------- Adressvorschläge (Straße → PLZ + Ort, PLZ → Ort): abschaltbar in den Einstellungen ----------
 const lookupEnabled = () => settings().addressLookup !== false;
 // Standort nur mit Einwilligung (DSGVO Art. 6 Abs. 1 lit. a): erst eigener Hinweis, dann die Abfrage des Browsers.
-// Genutzt wird ein auf ca. 1 km gerundeter Punkt, nur im Arbeitsspeicher – er wird nie gespeichert.
+// Genutzt wird ein auf ca. 1 km gerundeter Punkt, nur im Arbeitsspeicher: er wird nie gespeichert.
 const geoSupported = 'geolocation' in navigator && window.isSecureContext;
 let geoPosition = null; // { lat, lon, at }
 let geoDenied = false;
 const GEO_MAX_AGE = 15 * 60 * 1000;
 
-function readPosition() {
+/**
+ * Standort lesen. Der Browser-Timeout zählt erst, nachdem der Nutzer die Abfrage beantwortet hat – bleibt die
+ * Nachfrage einfach offen, käme sonst nie ein Ergebnis. Daher eine eigene Obergrenze.
+ */
+function readPosition(limit = 20000) {
   return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(Object.assign(new Error('Zeitüberschreitung'), { code: 3 })), limit);
     navigator.geolocation.getCurrentPosition(
-      (pos) => resolve({ lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100, at: Date.now() }),
-      reject,
+      (pos) => { clearTimeout(timer); resolve({ lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100, at: Date.now() }); },
+      (err) => { clearTimeout(timer); reject(err); },
       { enableHighAccuracy: false, maximumAge: GEO_MAX_AGE, timeout: 10000 },
     );
   });
 }
-/** Holt den Standort – nur wenn eingewilligt und der Browser ihn ohne neue Nachfrage hergibt. */
+/** Entzieht der Nutzer die Freigabe im Browser, wird die Einstellung sofort mit ausgeschaltet. */
+function watchGeoPermission() {
+  navigator.permissions?.query({ name: 'geolocation' }).then((status) => {
+    const apply = () => {
+      if (status.state === 'denied' && settings().geoBias) {
+        settings().geoBias = false;
+        geoPosition = null;
+        geoDenied = true;
+        save(renderSaveState);
+      }
+      settingsPanel.syncGeoSwitch();
+    };
+    status.addEventListener('change', apply);
+    apply();
+  }).catch(() => {});
+}
+/** Holt den Standort: nur wenn eingewilligt und der Browser ihn ohne neue Nachfrage hergibt. */
 async function quietPosition() {
   if (!geoSupported || !settings().geoBias || geoDenied) return null;
   if (geoPosition && Date.now() - geoPosition.at < GEO_MAX_AGE) return geoPosition;
@@ -294,21 +364,21 @@ async function requestGeo({ askFirst = true } = {}) {
   } catch (err) {
     geoDenied = err?.code === 1;
     settings().geoBias = false;
-    toast(geoDenied ? 'Standort im Browser nicht freigegeben – die Vorschläge funktionieren trotzdem.' : 'Standort konnte nicht ermittelt werden.');
+    toast(geoDenied ? 'Standort im Browser nicht freigegeben. Die Vorschläge funktionieren trotzdem.' : err?.code === 3 ? 'Keine Standort-Freigabe erhalten. Der Schalter bleibt aus.' : 'Standort konnte nicht ermittelt werden.');
     return false;
   } finally {
     save(renderSaveState);
-    const sw = $('[data-setting="geoBias"]');
-    if (sw) sw.checked = Boolean(settings().geoBias);
+    settingsPanel.syncGeoSwitch();
   }
 }
 function revokeGeo() {
   settings().geoBias = false;
   geoPosition = null;
   save(renderSaveState);
+  settingsPanel.syncGeoSwitch();
   toast('Standort wird nicht mehr genutzt');
 }
-/** Ohne Standort: der eigene Firmensitz als Bezugspunkt – Kunden kommen meist aus der Umgebung. */
+/** Ohne Standort: der eigene Firmensitz als Bezugspunkt: Kunden kommen meist aus der Umgebung. */
 const placeCache = new Map();
 async function companyPlace(signal) {
   const { zip, city } = settings().company;
@@ -359,7 +429,7 @@ $('#price-chips').addEventListener('click', (e) => {
   if (!chip || toGross === Boolean(inv.pricesGross)) return;
   for (const item of inv.items) {
     const rate = TAX_TYPES[taxKeyOf(item)]?.rate ?? 0;
-    try { if (String(item.unitPrice).trim()) item.unitPrice = priceToInput(convertPrice(toPriceUnits(item.unitPrice), rate, toGross)); } catch { /* ungültig – unverändert */ }
+    try { if (String(item.unitPrice).trim()) item.unitPrice = priceToInput(convertPrice(toPriceUnits(item.unitPrice), rate, toGross)); } catch { /* ungültig: unverändert */ }
     if (item.discount?.type === 'amount' && String(item.discount.value).trim()) {
       try { item.discount.value = centsToInput(Math.round(convertPrice(toCents(item.discount.value) * 100, rate, toGross) / 100)); } catch { /* unverändert */ }
     }
@@ -368,7 +438,7 @@ $('#price-chips').addEventListener('click', (e) => {
   renderPriceMode();
   renderItems();
   update();
-  if (inv.discount?.type === 'amount' && String(inv.discount.value ?? '').trim()) toast(`Preise umgerechnet. Bitte den Gesamtrabatt prüfen – er gilt jetzt ${toGross ? 'brutto' : 'netto'}.`);
+  if (inv.discount?.type === 'amount' && String(inv.discount.value ?? '').trim()) toast(`Preise umgerechnet. Bitte den Gesamtrabatt prüfen, er gilt jetzt ${toGross ? 'brutto' : 'netto'}.`);
   else toast(`Preise in ${toGross ? 'Bruttopreise' : 'Nettopreise'} umgerechnet`);
 });
 
@@ -516,7 +586,7 @@ function renderBankSummary() {
   const inv = invoice();
   const c = invSettings(inv).company;
   const ok = isValidIBAN(c.iban);
-  const status = ok ? formatIBAN(c.iban) : c.iban ? `${formatIBAN(c.iban)} – IBAN ungültig (Prüfziffer stimmt nicht)` : 'Noch keine IBAN hinterlegt';
+  const status = ok ? formatIBAN(c.iban) : c.iban ? `${formatIBAN(c.iban)} (IBAN ungültig, Prüfziffer stimmt nicht)` : 'Noch keine IBAN hinterlegt';
   const summary = $('#bank-summary');
   summary.classList.toggle('is-invalid', !ok);
   summary.replaceChildren(
@@ -526,17 +596,21 @@ function renderBankSummary() {
       c.bank && el('p', { className: 'field-hint', textContent: c.bank })),
     el('button', { type: 'button', className: 'btn btn-secondary btn-sm', textContent: ok ? 'Ändern' : c.iban ? 'Korrigieren' : 'Eintragen', onclick: () => settingsPanel.open('company.iban') }),
   );
-  // GiroCode nur mit gültiger IBAN und in Euro. Die Wahl selbst bleibt gespeichert.
+  // GiroCode braucht eine gültige IBAN; bei Fremdwährung zusätzlich einen Kurs (der QR-Code enthält den Euro-Betrag).
   const euro = (inv.currency || 'EUR') === 'EUR';
-  const available = ok && euro;
+  const rateOk = euro || validRate(inv.fxRate);
+  const available = ok && rateOk;
   const giro = $('[data-field="giroCode"]');
   giro.disabled = !available || isLocked(inv);
   giro.checked = available && Boolean(inv.giroCode);
   giro.closest('.switch').classList.toggle('is-disabled', !available);
   $('#giro-desc').hidden = !available;
+  $('#giro-desc').textContent = euro
+    ? 'QR-Code, den dein Kunde mit der Banking-App scannt. Betrag, IBAN und Verwendungszweck sind dann ausgefüllt.'
+    : 'QR-Code mit dem in Euro umgerechneten Betrag. Die Banking-App überweist dann in Euro.';
   const warning = $('#giro-warning');
   warning.hidden = available;
-  warning.textContent = !euro ? 'Nicht verfügbar – der GiroCode gilt nur für Euro-Beträge.' : c.iban ? 'Nicht verfügbar – die IBAN ist ungültig.' : 'Nicht verfügbar – keine IBAN eingetragen.';
+  warning.textContent = !ok ? (c.iban ? 'Nicht verfügbar: die IBAN ist ungültig.' : 'Nicht verfügbar: keine IBAN eingetragen.') : 'Nicht verfügbar: zuerst den Wechselkurs laden.';
 }
 $('#save-defaults').addEventListener('click', () => {
   const inv = invoice();
@@ -624,6 +698,7 @@ function renderFieldErrors(issues = currentIssues()) {
 function goToField(field) {
   const target = stepOf(field);
   if (target === 'settings') { settingsPanel.open(field); return; }
+  if (field.startsWith('customer.') && isSavedCustomer(invoice().customer) && !isLocked(invoice())) { settingsPanel.openCustomer(invoice().customer.id); return; }
   if (layout.dataset.view !== 'edit') switchView('edit');
   if (step !== target) setStep(target);
   const m = /^items\.(\d+)\./.exec(field);
@@ -649,7 +724,7 @@ function setBusy(on) {
   document.documentElement.classList.toggle('pdf-busy', on);
 }
 
-/** Vor dem ersten Export fragen – danach ist die Rechnung nicht mehr änderbar. */
+/** Vor dem ersten Export fragen: danach ist die Rechnung nicht mehr änderbar. */
 async function confirmFinalize(mode) {
   $('#finalize-number').textContent = invoice().number;
   $('#finalize-confirm-label').textContent = mode === 'xml' ? 'Abschließen & E-Rechnung laden' : 'Abschließen & PDF exportieren';
@@ -670,7 +745,7 @@ async function exportDocument(mode) {
     showAllErrors = true;
     renderFieldErrors();
     goToField(errors[0].field);
-    toast(errors.length === 1 ? `Eine Angabe fehlt oder ist ungültig: ${errors[0].message}` : `${errors.length} Angaben fehlen oder sind ungültig – sie sind rot markiert.`);
+    toast(errors.length === 1 ? `Eine Angabe fehlt oder ist ungültig: ${errors[0].message}` : `${errors.length} Angaben fehlen oder sind ungültig. Sie sind rot markiert.`);
     return;
   }
   if (!(await confirmFinalize(mode))) return;
@@ -686,13 +761,13 @@ async function exportDocument(mode) {
     requestPersistentStorage();
     fillForm();
     update();
-    const note = stored ? '' : ' – bitte die Datei aufbewahren, der Browser konnte kein Original ablegen';
+    const note = stored ? '' : '. Bitte die Datei aufbewahren, der Browser konnte kein Original ablegen';
     if (mode === 'pdf') deliverPdf(docs.pdf, docs.pdfName, tab, `${docs.zugferd ? ' (mit E-Rechnung)' : ''}${note}`);
     else deliverXml(docs.xml, docs.xmlName);
   } catch (err) {
     tab?.close();
     console.error(err);
-    toast('Das Dokument konnte nicht erstellt werden. Die Rechnung bleibt ein Entwurf – bitte erneut versuchen.');
+    toast('Das Dokument konnte nicht erstellt werden. Die Rechnung bleibt ein Entwurf. Bitte erneut versuchen.');
   } finally {
     setBusy(false);
   }
@@ -718,7 +793,7 @@ async function downloadPdf(inv) {
   }
 }
 
-/** E-Rechnung einer abgeschlossenen Rechnung: Original oder – falls noch keine abgelegt ist – jetzt erzeugen und ablegen. */
+/** E-Rechnung einer abgeschlossenen Rechnung: Original oder: falls noch keine abgelegt ist: jetzt erzeugen und ablegen. */
 async function downloadXml(inv) {
   const original = await originalOf(inv);
   if (original?.xml) { deliverXml(original.xml, original.xmlName); return; }
@@ -737,7 +812,7 @@ $('#export-xml-bar').addEventListener('click', () => exportDocument('xml'));
 $('#save-draft').addEventListener('click', () => {
   const ok = persist();
   renderSaveState(ok);
-  toast(ok ? `${invoice().number} als Entwurf gespeichert` : 'Speichern nicht möglich – der Speicher ist voll.');
+  toast(ok ? `${invoice().number} als Entwurf gespeichert` : 'Speichern nicht möglich, der Speicher ist voll.');
   archive.render();
   openDrawer($('#archive'));
 });
@@ -754,7 +829,7 @@ function renderSaveState(saved) {
     $('#save-state').textContent = `Abgeschlossen${inv.lockedAt ? ` am ${new Date(inv.lockedAt).toLocaleDateString('de-DE')}` : ''} · nicht mehr änderbar`;
     return;
   }
-  if (saved === false) { $('#save-state').textContent = 'Speichern nicht möglich – Speicher voll (Logo zu groß?)'; return; }
+  if (saved === false) { $('#save-state').textContent = 'Speichern nicht möglich: Speicher voll (Logo zu groß?)'; return; }
   $('#save-state').textContent = saved ? `Entwurf · gespeichert um ${timeFmt.format(new Date())}` : 'Entwurf · wird automatisch gespeichert';
 }
 
@@ -766,7 +841,7 @@ function update() {
   renderFieldErrors();
   renderTitle();
   renderSaveState();
-  $('#sumbar-total').textContent = totals ? formatMoney((kindOf(inv).key === 'storno' ? -1 : 1) * totals.payable, inv.currency || 'EUR') : '–';
+  $('#sumbar-total').textContent = totals ? formatMoney((kindOf(inv).key === 'storno' ? -1 : 1) * totals.payable, inv.currency || 'EUR') : '-';
   renderOnboarding();
   if ($('#settings').open) { settingsPanel.renderCompanyStatus(); settingsPanel.renderNumberPreview(); }
   save(renderSaveState);
@@ -815,7 +890,18 @@ const settingsPanel = initSettingsPanel({
   openDrawer,
   resetEditor,
   companyMissing,
+  onCustomersChanged: () => {
+    const inv = invoice();
+    for (const input of $$('[data-field^="customer."]', form)) {
+      const value = getPath(inv, input.dataset.field);
+      if (input.type === 'checkbox') input.checked = Boolean(value); else input.value = value ?? '';
+    }
+    renderCustomerSelect();
+    renderCustomerLock();
+    update();
+  },
 });
+watchGeoPermission();
 const archive = initArchivePanel({ resetEditor, openDrawer, downloadPdf, downloadXml });
 $('#open-settings').addEventListener('click', () => settingsPanel.open());
 

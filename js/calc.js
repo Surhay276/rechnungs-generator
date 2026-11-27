@@ -1,18 +1,18 @@
 /**
- * Summen einer Rechnung – centgenau und nach den Rechenregeln der E-Rechnung (EN 16931).
+ * Summen einer Rechnung: centgenau und nach den Rechenregeln der E-Rechnung (EN 16931).
  *
  * - Steuer je Steuerart auf die Summe, nicht je Zeile (keine Rundungsdifferenzen)
  * - Gesamtrabatt anteilig auf die Steuerarten verteilt (Verfahren der größten Reste)
  * - Netto- oder Bruttopreise: Bei Bruttopreisen wird die Steuer aus dem Bruttobetrag herausgerechnet,
  *   der Rechnungsbetrag ist dann genau die Summe der eingegebenen Preise (99,99 € bleiben 99,99 €).
  */
-import { toCents, toPriceUnits, toQuantityUnits, toPercent, roundDiv, roundDivInt, isEmptyNumber, LIMITS, PRICE_SCALE } from './money.js?v=26';
+import { toCents, toPriceUnits, toQuantityUnits, toPercent, roundDiv, roundDivInt, isEmptyNumber, LIMITS, PRICE_SCALE } from './money.js?v=27';
 
 const TOO_HIGH = 'Der Rechnungsbetrag ist zu hoch (höchstens knapp 1 Mrd. €).';
-import { taxTypeOf } from './tax.js?v=26';
-import { addDays, isValidIsoDate } from './dates.js?v=26';
+import { taxTypeOf } from './tax.js?v=27';
+import { addDays, isValidIsoDate } from './dates.js?v=27';
 
-/** Rabattbetrag in Cent für eine Basis – als Prozent oder fester Betrag, nie mehr als die Basis. Vorzeichen folgt der Basis. */
+/** Rabattbetrag in Cent für eine Basis: als Prozent oder fester Betrag, nie mehr als die Basis. Vorzeichen folgt der Basis. */
 export function discountCents(baseCents, discount) {
   if (!discount || isEmptyNumber(discount.value)) return 0;
   const magnitude = Math.abs(baseCents);
@@ -40,7 +40,7 @@ export function lineNet(item) {
 }
 
 /**
- * Verteilt einen Betrag proportional auf Anteile – nach dem Verfahren der größten Reste, damit die Summe exakt stimmt.
+ * Verteilt einen Betrag proportional auf Anteile: nach dem Verfahren der größten Reste, damit die Summe exakt stimmt.
  * Funktioniert auch mit negativen Anteilen (Gutschriftspositionen).
  */
 export function allocate(total, weights) {
@@ -81,7 +81,7 @@ const CATEGORY_ORDER = ['S', 'Z', 'E', 'AE', 'K', 'G', 'O'];
 /**
  * Berechnet alle Beträge einer Rechnung (alle Werte in Cent, positiv für normale Rechnungen).
  *
- * lines[i]:   base/discount/net – netto (für die E-Rechnung) · shown – Beträge in Eingabeart (für die Anzeige)
+ * lines[i]:   base/discount/net: netto (für die E-Rechnung) · shown: Beträge in Eingabeart (für die Anzeige)
  * breakdown:  je Steuerart: netBefore (vor Gesamtrabatt), discount, base (Bemessungsgrundlage), amount (Steuer)
  * subtotal (BT-106) · discount (BT-107) · net (BT-109) · tax (BT-110) · gross (BT-112) · rounding (BT-114)
  * total (Rechnungsbetrag = gross + rounding) · prepaid (BT-113) · payable (BT-115)

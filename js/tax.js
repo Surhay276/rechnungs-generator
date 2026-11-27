@@ -1,5 +1,5 @@
 /**
- * Steuerarten, Länder und Dokumentarten – die fachlichen Stammdaten der Rechnung.
+ * Steuerarten, Länder und Dokumentarten: die fachlichen Stammdaten der Rechnung.
  *
  * Jede Position hat eine Steuerart. Sie bestimmt den Steuersatz, den Pflichthinweis auf der Rechnung
  * (§ 14 Abs. 4 Nr. 8, § 14a UStG) und die Steuerkategorie der E-Rechnung (EN 16931, UNCL 5305).
@@ -16,7 +16,7 @@ export const RETENTION_NOTICE = 'Sie sind gesetzlich verpflichtet, diese Rechnun
 export const TAX_TYPES = Object.freeze({
   S19: { key: 'S19', category: 'S', rate: 19, label: '19 %', short: '19 %' },
   S7: { key: 'S7', category: 'S', rate: 7, label: '7 %', short: '7 %' },
-  Z: { key: 'Z', category: 'Z', rate: 0, label: '0 % – Nullsteuersatz (§ 12 Abs. 3 UStG)', short: '0 %', note: 'Nullsteuersatz nach § 12 Abs. 3 UStG.' },
+  Z: { key: 'Z', category: 'Z', rate: 0, label: '0 % Nullsteuersatz (§ 12 Abs. 3 UStG)', short: '0 %', note: 'Nullsteuersatz nach § 12 Abs. 3 UStG.' },
   E: { key: 'E', category: 'E', rate: 0, label: 'Steuerfrei (§ 4 UStG)', short: 'frei', reasonRequired: true, group: 'E' },
   AE: {
     key: 'AE', category: 'AE', rate: 0, label: 'Reverse-Charge (§ 13b UStG)', short: '0 % RC',
@@ -45,7 +45,7 @@ export const TAX_TYPE_GROUPS = Object.freeze([
 /** Kleinunternehmer: alle Positionen steuerbefreit, ein gemeinsamer Hinweis. */
 export const KU_TYPE = Object.freeze({ key: 'KU', category: 'E', rate: 0, label: 'Kleinunternehmer', short: '', note: KLEINUNTERNEHMER_HINWEIS, group: 'E' });
 
-/** Alte Speicherstände kennen nur `taxRate` – so bleiben auch abgeschlossene Rechnungen exakt wie ausgestellt. */
+/** Alte Speicherstände kennen nur `taxRate`: so bleiben auch abgeschlossene Rechnungen exakt wie ausgestellt. */
 const LEGACY = { 19: 'S19', 7: 'S7', 0: 'Z' };
 
 /** Steuerart einer Position. */
@@ -61,7 +61,7 @@ export function taxTypeOf(item, kleinunternehmer = false) {
 export const taxKeyOf = (item) => item?.taxType ?? LEGACY[Number(item?.taxRate)] ?? 'S19';
 
 // ---------- Länder ----------
-/** EU-Mitgliedstaaten (ISO 3166-1) – Griechenland hat bei der USt-IdNr. das Kürzel „EL“. */
+/** EU-Mitgliedstaaten (ISO 3166-1): Griechenland hat bei der USt-IdNr. das Kürzel „EL“. */
 export const EU_COUNTRIES = Object.freeze(['AT', 'BE', 'BG', 'CY', 'CZ', 'DE', 'DK', 'EE', 'ES', 'FI', 'FR', 'GR', 'HR', 'HU', 'IE', 'IT',
   'LT', 'LU', 'LV', 'MT', 'NL', 'PL', 'PT', 'RO', 'SE', 'SI', 'SK']);
 export const isEU = (country) => EU_COUNTRIES.includes(String(country || 'DE').toUpperCase());
@@ -73,7 +73,7 @@ export function countryName(code) {
   countryNames ??= typeof Intl.DisplayNames === 'function' ? new Intl.DisplayNames(['de'], { type: 'region' }) : null;
   try { return countryNames?.of(code) ?? code; } catch { return code; }
 }
-/** Auswahlliste: Deutschland zuerst, dann EU, dann weitere Länder – jeweils alphabetisch. */
+/** Auswahlliste: Deutschland zuerst, dann EU, dann weitere Länder: jeweils alphabetisch. */
 export function countryOptions() {
   const sort = (list) => list.map((code) => ({ code, name: countryName(code) })).sort((a, b) => a.name.localeCompare(b.name, 'de'));
   return [
@@ -111,7 +111,7 @@ export const LEGAL_FORMS = Object.freeze({
   sonstige: { label: 'Sonstige', register: false, officers: false },
 });
 
-/** Rechtsform aus dem Firmennamen erraten („Muster GmbH“ → gmbh) – für den Hinweis in den Einstellungen. */
+/** Rechtsform aus dem Firmennamen erraten („Muster GmbH“ → gmbh): für den Hinweis in den Einstellungen. */
 export function guessLegalForm(name) {
   const order = ['gmbhcokg', 'gmbh', 'ug', 'ag', 'ohg', 'kg', 'ek', 'ev'];
   return order.find((key) => LEGAL_FORMS[key].suffix.test(String(name ?? ''))) ?? null;

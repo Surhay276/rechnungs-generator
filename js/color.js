@@ -1,4 +1,4 @@
-// Farblogik für das Rechnungsdesign – ohne DOM, damit sie mit node --test prüfbar ist.
+// Farblogik für das Rechnungsdesign: ohne DOM, damit sie mit node --test prüfbar ist.
 
 export const DEFAULT_COLOR = '#1D2939';
 
@@ -39,7 +39,7 @@ export function contrast(a, b) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
-/** Mischt `hex` mit `other`; amount = Anteil von `other` (0–1). */
+/** Mischt `hex` mit `other`; amount = Anteil von `other` (0-1). */
 export function mix(hex, other, amount) {
   const a = toRgb(hex);
   const b = toRgb(other);
@@ -56,7 +56,7 @@ export function readableOnWhite(hex, min = 4.5) {
 /**
  * Leitet aus einer gewählten Farbe alle Töne für das Blatt ab:
  * - accent: Fläche (Tabellenkopf bei „gefüllt“)
- * - onAccent: Schrift auf der Fläche (weiß oder dunkel – je nachdem, was lesbarer ist)
+ * - onAccent: Schrift auf der Fläche (weiß oder dunkel: je nachdem, was lesbarer ist)
  * - text: Farbe für Titel und Überschriften auf Weiß (mind. 4,5 : 1)
  * - soft: helle Tönung (Gesamtbetrag, Tabellenkopf bei „hell“)
  * - line: zarte Linie in der Farbe
@@ -68,7 +68,7 @@ export function invoiceTheme(value) {
   return { accent, onAccent, text, soft: mix(accent, '#FFFFFF', 0.9), line: mix(accent, '#FFFFFF', 0.75) };
 }
 
-/** HSV (Farbton 0–360°, Sättigung 0–1, Helligkeit 0–1) → Hex. Grundlage für das Farbrad. */
+/** HSV (Farbton 0-360°, Sättigung 0-1, Helligkeit 0-1) → Hex. Grundlage für das Farbrad. */
 export function hsvToHex(h, s, v) {
   const hue = ((h % 360) + 360) % 360;
   const f = (n) => {

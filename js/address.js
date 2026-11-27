@@ -1,12 +1,12 @@
 /**
- * Adressvorschläge beim Tippen – für die Kundenanschrift und die eigene Firmenanschrift.
+ * Adressvorschläge beim Tippen: für die Kundenanschrift und die eigene Firmenanschrift.
  *
  * - Straße: Vorschläge mit Hausnummer, PLZ und Ort über Photon (OpenStreetMap-Daten, komoot).
  *   Ein Klick füllt Straße, PLZ und Ort auf einmal.
  * - PLZ: Der Ort wird über die OpenPLZ API (amtliche Daten) ergänzt; passt ein eingetragener Ort nicht
  *   zur PLZ, erscheint ein Hinweis mit „Übernehmen“.
  *
- * Gesendet wird nur der getippte Adresstext – keine anderen Rechnungsdaten. Ohne Netz gibt es einfach
+ * Gesendet wird nur der getippte Adresstext: keine anderen Rechnungsdaten. Ohne Netz gibt es einfach
  * keine Vorschläge; die Eingabe funktioniert weiter wie gewohnt.
  */
 
@@ -25,7 +25,7 @@ async function getJson(url, signal) {
   return data;
 }
 
-// Deutschland als Suchgebiet (minLon, minLat, maxLon, maxLat) – keine Treffer aus dem Ausland
+// Deutschland als Suchgebiet (minLon, minLat, maxLon, maxLat): keine Treffer aus dem Ausland
 const BBOX_DE = '5.86,47.27,15.05,55.06';
 
 const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/ß/g, 'ss')
@@ -64,8 +64,8 @@ const distanceKm = (a, b) => {
 /**
  * Straßenvorschläge (nur Deutschland).
  * @param query   getippter Text, z. B. „Sonnenallee 1“
- * @param bias    { lat, lon, near } – Bezugspunkt für die Sortierung (Standort mit Einwilligung oder eigener Firmensitz)
- * @param zip     bereits eingetragene PLZ – Treffer dort zuerst
+ * @param bias    { lat, lon, near }: Bezugspunkt für die Sortierung (Standort mit Einwilligung oder eigener Firmensitz)
+ * @param zip     bereits eingetragene PLZ: Treffer dort zuerst
  */
 export async function searchStreets(query, { bias = null, zip = '', signal } = {}) {
   const { name: typedName, number: typedNumber } = splitStreet(query);
@@ -140,7 +140,7 @@ export async function citiesForZip(zip, signal) {
   return [...new Set((Array.isArray(data) ? data : []).map((l) => l.name).filter(Boolean))];
 }
 
-/** „Berlin-Neukölln“ passt zu „Berlin“, „Frankfurt am Main“ zu „Frankfurt a. Main“ nur grob – lieber großzügig. */
+/** „Berlin-Neukölln“ passt zu „Berlin“, „Frankfurt am Main“ zu „Frankfurt a. Main“ nur grob: lieber großzügig. */
 const cityKey = (s) => norm(s).replace(/ /g, '');
 const cityMatches = (city, names) => names.some((n) => cityKey(city).startsWith(cityKey(n)) || cityKey(n).startsWith(cityKey(city)));
 
@@ -227,7 +227,7 @@ function createMenu(input, { footer = null } = {}) {
   return { open, close };
 }
 
-/** Hinweis (gelb) unter einem Feld – blockiert nichts, bietet aber eine Korrektur an. */
+/** Hinweis (gelb) unter einem Feld: blockiert nichts, bietet aber eine Korrektur an. */
 function setNotice(input, text, action) {
   const container = input.closest('.field') ?? input.parentElement;
   container.querySelector('.field-warn')?.remove();
@@ -247,7 +247,7 @@ function setNotice(input, text, action) {
   container.append(p);
 }
 
-/** Wert setzen wie eine Eingabe des Nutzers – damit Speichern, Vorschau und Prüfung mitlaufen. */
+/** Wert setzen wie eine Eingabe des Nutzers: damit Speichern, Vorschau und Prüfung mitlaufen. */
 function fill(input, value) {
   if (input.value === value) return;
   input.value = value;
@@ -256,9 +256,9 @@ function fill(input, value) {
 
 /**
  * Hängt die Vorschläge an drei Felder.
- * @param enabled  () => boolean – aus, wenn der Nutzer es abgeschaltet hat oder die Felder gesperrt sind
- * @param getBias  async () => { lat, lon, near } | null – Bezugspunkt für „Treffer in der Nähe zuerst“
- * @param nearby   { offer: () => boolean, request: () => Promise<boolean> } – Standort per Einwilligung anbieten
+ * @param enabled  () => boolean: aus, wenn der Nutzer es abgeschaltet hat oder die Felder gesperrt sind
+ * @param getBias  async () => { lat, lon, near } | null: Bezugspunkt für „Treffer in der Nähe zuerst“
+ * @param nearby   { offer: () => boolean, request: () => Promise<boolean> }: Standort per Einwilligung anbieten
  */
 export function attachAddressLookup({ street, zip, city, enabled = () => true, getBias = async () => null, nearby = null }) {
   const footer = document.createElement('div');
@@ -316,7 +316,7 @@ export function attachAddressLookup({ street, zip, city, enabled = () => true, g
     try { names = await citiesForZip(value, abortable()); } catch { return; }
     if (zip.value.trim() !== value) return;
     if (!names.length) {
-      setNotice(zip, 'Diese Postleitzahl ist nicht bekannt – bitte prüfen.');
+      setNotice(zip, 'Diese Postleitzahl ist nicht bekannt. Bitte prüfen.');
       return;
     }
     const current = city.value.trim();

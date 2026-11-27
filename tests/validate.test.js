@@ -102,7 +102,7 @@ test('Leitweg-ID: Format und Prüfziffer (MOD 97-10)', () => {
 });
 
 test('IBAN und GiroCode', () => {
-  // Offizielle Muster-IBANs aus der ISO-13616-/Bankendokumentation – keine echten Konten
+  // Offizielle Muster-IBANs aus der ISO-13616-/Bankendokumentation: keine echten Konten
   assert.equal(isValidIBAN('DE89 3704 0044 0532 0130 00'), true); // pragma: allowlist secret
   assert.equal(isValidIBAN('DE89370400440532013001'), false); // pragma: allowlist secret
   assert.equal(isValidIBAN('GB82 WEST 1234 5698 7654 32'), true); // pragma: allowlist secret

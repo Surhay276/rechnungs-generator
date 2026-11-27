@@ -1,11 +1,11 @@
 /**
- * Kleiner PDF-Schreiber ohne Abhängigkeiten – genau so viel PDF, wie eine Rechnung braucht:
+ * Kleiner PDF-Schreiber ohne Abhängigkeiten: genau so viel PDF, wie eine Rechnung braucht:
  * Text in eingebetteten TrueType-Schriften (Unicode, also auch ğ, ş, ı, ő …), Linien, Flächen und Bilder.
  * Läuft im Browser und in Node (für die Tests).
  *
- * Koordinaten: Punkt (1/72 Zoll), Ursprung **oben links** – umgerechnet wird erst beim Schreiben.
+ * Koordinaten: Punkt (1/72 Zoll), Ursprung **oben links**: umgerechnet wird erst beim Schreiben.
  *
- * Optional als PDF/A-3b (ISO 19005-3) zur Langzeitarchivierung – mit XMP-Metadaten, sRGB-Farbprofil
+ * Optional als PDF/A-3b (ISO 19005-3) zur Langzeitarchivierung: mit XMP-Metadaten, sRGB-Farbprofil
  * und eingebetteten Dateien (z. B. die XML einer ZUGFeRD-/Factur-X-Rechnung).
  */
 
@@ -92,7 +92,7 @@ export function parseFont(buffer) {
   return { bytes, unitsPerEm, bbox, ascent, descent, capHeight, advances, cmap };
 }
 
-/** Ersatz für Zeichen, die die Schrift nicht kennt (z. B. Emoji) – lieber ein Fragezeichen als ein leeres Kästchen. */
+/** Ersatz für Zeichen, die die Schrift nicht kennt (z. B. Emoji): lieber ein Fragezeichen als ein leeres Kästchen. */
 const FALLBACKS = { ' ': ' ', ' ': ' ', ' ': ' ', '\t': ' ', '‑': '-', '−': '-' };
 
 export class Font {
@@ -156,10 +156,10 @@ const pad2 = (n) => String(n).padStart(2, '0');
 function pdfDateString(d) {
   return `D:${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}+00'00'`;
 }
-/** Dasselbe Datum für XMP: 2026-11-27T12:00:00+00:00 – muss zum Info-Verzeichnis passen (PDF/A). */
+/** Dasselbe Datum für XMP: 2026-11-27T12:00:00+00:00: muss zum Info-Verzeichnis passen (PDF/A). */
 const xmpDate = (d) => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}+00:00`;
 
-/** Dokument-ID (16 Byte als Hex) – deterministisch aus Inhaltsmerkmalen (FNV-1a, viermal versetzt). */
+/** Dokument-ID (16 Byte als Hex): deterministisch aus Inhaltsmerkmalen (FNV-1a, viermal versetzt). */
 function documentId(seed) {
   let out = '';
   for (let round = 0; round < 4; round++) {
