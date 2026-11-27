@@ -2,11 +2,11 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=13';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=13';
+} from './invoice.js?v=14';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=14';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=13';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=14';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -386,16 +386,20 @@ $('#add-item').addEventListener('click', () => {
 function renderBankSummary() {
   const c = settings().company;
   const ok = isValidIBAN(c.iban);
-  $('#bank-summary').replaceChildren(
+  const status = ok ? formatIBAN(c.iban) : c.iban ? `${formatIBAN(c.iban)} – IBAN ungültig (Prüfziffer stimmt nicht)` : 'Noch keine IBAN hinterlegt';
+  const summary = $('#bank-summary');
+  summary.classList.toggle('is-invalid', !ok);
+  summary.replaceChildren(
     el('div', {},
       el('span', { className: 'field-label', textContent: 'Bankverbindung' }),
-      el('p', { className: 'mono', textContent: ok ? formatIBAN(c.iban) : 'Keine gültige IBAN hinterlegt' }),
+      el('p', { className: 'mono', textContent: status }),
       c.bank && el('p', { className: 'field-hint', textContent: c.bank })),
-    el('button', { type: 'button', className: 'btn btn-secondary btn-sm', textContent: 'Ändern', onclick: () => openSettings('company.iban') }),
+    el('button', { type: 'button', className: 'btn btn-secondary btn-sm', textContent: ok ? 'Ändern' : c.iban ? 'Korrigieren' : 'Eintragen', onclick: () => openSettings('company.iban') }),
   );
   const giro = $('[data-field="giroCode"]');
   giro.disabled = !ok;
   giro.closest('.switch').classList.toggle('is-disabled', !ok);
+  $('#giro-warning').hidden = ok;
 }
 
 $('#save-defaults').addEventListener('click', () => {
@@ -622,6 +626,13 @@ function renderPreview(totals) {
   if (inv.giroCode && totals?.gross > 0 && isValidIBAN(c.iban) && c.name) {
     try { qr = giroCodeSvg(epcPayload({ name: c.name, iban: c.iban, bic: c.bic, amountCents: totals.gross, reference: inv.number })); } catch { qr = null; }
   }
+  // GiroCode gewünscht, aber IBAN fehlt/ungültig → sichtbarer Hinweis (nur am Bildschirm, nie im PDF)
+  if (!qr && inv.giroCode && totals?.gross > 0 && !isValidIBAN(c.iban)) {
+    qr = el('button', { type: 'button', className: 'inv-qr-missing', onclick: () => openSettings('company.iban') },
+      icon('alert'),
+      el('strong', { textContent: 'GiroCode fehlt' }),
+      el('span', { textContent: c.iban ? 'IBAN ungültig – hier korrigieren' : 'IBAN eintragen, dann erscheint er hier' }));
+  }
 
   const sender = [c.name, c.street, [c.zip, c.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
 
@@ -649,7 +660,7 @@ function renderPreview(totals) {
     ku && el('p', { className: 'inv-note', textContent: KLEINUNTERNEHMER_HINWEIS }),
     (payText || qr) && el('div', { className: 'inv-pay' },
       el('div', {}, payText && el('p', { textContent: payText }), skontoText && el('p', { textContent: skontoText })),
-      qr && el('figure', { className: 'inv-qr' }, qr, el('figcaption', { textContent: 'Mit Banking-App scannen' }))),
+      qr && (qr.tagName === 'BUTTON' ? qr : el('figure', { className: 'inv-qr' }, qr, el('figcaption', { textContent: 'Mit Banking-App scannen' })))),
     inv.note && el('p', { className: 'inv-note', textContent: inv.note }),
     el('footer', { className: 'inv-foot' },
       el('div', {}, el('strong', { textContent: c.name || '' }), el('br'), ...multiline(formatAddress(c))),
@@ -918,6 +929,7 @@ function renderCompanyStatus() {
 }
 function openSettings(focusField) {
   fillSettings();
+  if (focusField) touched.add(focusField); // Fehler am Zielfeld sofort zeigen (z. B. ungültige IBAN)
   renderFieldErrors();
   openDrawer($('#settings'));
   if (focusField) {
