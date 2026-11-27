@@ -3,11 +3,11 @@ import {
   isValidIBAN, formatIBAN, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung,
   isLocked, finalizeInvoice, settingsFor, copyAsDraft,
-} from './invoice.js?v=24';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=24';
-import { buildInvoiceView, formatDate } from './view.js?v=24';
-import { attachAddressLookup, locatePlace } from './address.js?v=24';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=24';
+} from './invoice.js?v=25';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=25';
+import { buildInvoiceView, formatDate } from './view.js?v=25';
+import { attachAddressLookup, locatePlace } from './address.js?v=25';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=25';
 
 const STORAGE_KEY = 'rechnungen:v3';
 const THEME_KEY = 'rechnungen:theme';
@@ -64,8 +64,8 @@ function newInvoice(s = store) {
     customer: emptyCustomer(),
     items: [emptyItem()],
     discount: { type: 'amount', value: '' },
-    skonto: { enabled: false, percent: '2', days: 7 },
-    giroCode: true,
+    skonto: { enabled: false, percent: '2', days: 7 }, // Skonto und GiroCode nur, wenn der Nutzer sie einschaltet
+    giroCode: false,
     intro: d.intro ?? '',
     note: d.note ?? '',
     updatedAt: Date.now(),
@@ -649,7 +649,7 @@ function confirmFinalize(mode) {
 let pdfFonts = null;
 /** Schriften fürs PDF einmalig laden (Inter, Teilmenge mit Umlauten und Latin Extended, ca. 24 KB je Schnitt). */
 function loadPdfFonts() {
-  pdfFonts ??= Promise.all([400, 600, 700].map((w) => fetch(`fonts/inter-pdf-${w}.ttf?v=24`).then((r) => {
+  pdfFonts ??= Promise.all([400, 600, 700].map((w) => fetch(`fonts/inter-pdf-${w}.ttf?v=25`).then((r) => {
     if (!r.ok) throw new Error('Schrift nicht gefunden');
     return r.arrayBuffer();
   }))).then(([regular, semibold, bold]) => ({ regular, semibold, bold }))
@@ -695,32 +695,47 @@ function currentView(inv = invoice()) {
   return buildInvoiceView(inv, s, totals, design(s));
 }
 
+/**
+ * Handy/Tablet: Pop-up-Tabs mit blob-Adressen gehen dort nicht (Android zeigt eine leere schwarze Seite,
+ * In-App-Browser wie WhatsApp erst recht). Dort wird nur heruntergeladen; „Öffnen“ läuft über das Teilen-Menü
+ * des Systems (PDF-Viewer, Dateien, Mail …).
+ */
+const isMobileDevice = () => navigator.userAgentData?.mobile
+  || /Android|iPhone|iPad|iPod|Mobi|Silk|Kindle/i.test(navigator.userAgent)
+  || (navigator.maxTouchPoints > 1 && /Macintosh/.test(navigator.userAgent)); // iPadOS meldet sich als Mac
+
 let pdfBusy = false;
-async function exportPdf() {
+/** Erzeugt das PDF einer Rechnung, speichert es und öffnet es (Desktop) bzw. bietet Öffnen/Teilen an (Handy). */
+async function downloadPdf(inv) {
   if (pdfBusy) return;
-  if (!checkBeforeExport('pdf')) return;
-  if (!(await confirmFinalize('pdf'))) return;
-  markCreated();
   pdfBusy = true;
   document.documentElement.classList.add('pdf-busy');
-  // Neues Fenster sofort öffnen, solange der Klick noch „frisch“ ist – sonst blockt der Browser es als Pop-up.
-  // Auf Handys übernimmt das System das Öffnen der heruntergeladenen Datei.
-  const canOpenTab = matchMedia('(pointer: fine)').matches;
-  const tab = canOpenTab ? window.open('', '_blank') : null;
+  // Desktop: Tab sofort öffnen, solange der Klick noch „frisch“ ist – sonst blockt der Browser das Pop-up
+  const tab = isMobileDevice() ? null : window.open('', '_blank');
   tab?.document.write('<title>PDF wird erstellt …</title><p style="font:16px system-ui;padding:24px;color:#475467">PDF wird erstellt …</p>');
+  toast('PDF wird erstellt …');
   try {
-    const { createInvoicePdf } = await import('./invoice-pdf.js?v=24');
-    const view = currentView();
+    const { createInvoicePdf } = await import('./invoice-pdf.js?v=25');
+    const view = currentView(inv);
     const [fonts, logo] = await Promise.all([loadPdfFonts(), rasterizeLogo(view.logo)]);
     const bytes = await createInvoicePdf(view, { fonts, logo });
     const file = new File([bytes], `${view.fileName}.pdf`, { type: 'application/pdf' });
     const url = URL.createObjectURL(file);
-    // 1. herunterladen …
-    el('a', { href: url, download: file.name }).click();
-    // 2. … und gleich öffnen
-    if (tab && !tab.closed) tab.location.href = url;
-    toast(`${file.name} gespeichert`, { label: 'Öffnen', run: () => window.open(url, '_blank') });
+    const link = el('a', { href: url, download: file.name, hidden: true });
+    document.body.append(link); // manche Browser laden nur Links herunter, die im Dokument hängen
+    link.click();
+    link.remove();
     setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+    if (tab && !tab.closed) {
+      tab.location.href = url;
+      toast(`${file.name} gespeichert`);
+    } else if (!isMobileDevice()) {
+      toast(`${file.name} gespeichert`, { label: 'Öffnen', run: () => window.open(url, '_blank') }); // Pop-up war blockiert
+    } else if (navigator.canShare?.({ files: [file] })) {
+      toast(`${file.name} gespeichert`, { label: 'Öffnen', run: () => navigator.share({ files: [file], title: file.name }).catch(() => {}) });
+    } else {
+      toast(`${file.name} gespeichert – du findest es in deinen Downloads.`);
+    }
   } catch (err) {
     tab?.close();
     console.error(err);
@@ -731,15 +746,35 @@ async function exportPdf() {
   }
 }
 
+async function exportPdf() {
+  if (pdfBusy) return;
+  if (!checkBeforeExport('pdf')) return;
+  if (!(await confirmFinalize('pdf'))) return;
+  markCreated();
+  await downloadPdf(invoice());
+}
+
+/** E-Rechnung einer Rechnung herunterladen (auch aus dem Rechnungsverlauf). */
+function downloadXml(inv) {
+  let xml;
+  try { xml = toXRechnung(inv, invSettings(inv)); } catch (err) {
+    // ältere Rechnung ohne die Angaben, die die E-Rechnung zusätzlich braucht (E-Mail, Telefon …)
+    toast(`E-Rechnung nicht möglich: ${err.message.split('.')[0]}.`);
+    return;
+  }
+  const a = el('a', { href: URL.createObjectURL(new Blob([xml], { type: 'application/xml' })), download: `${inv.number}.xml`, hidden: true });
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60 * 1000);
+  toast('E-Rechnung (XRechnung 3.0) heruntergeladen');
+}
+
 async function exportXml() {
   if (!checkBeforeExport('xml')) return;
   if (!(await confirmFinalize('xml'))) return;
   markCreated();
-  const xml = toXRechnung(invoice(), invSettings());
-  const a = el('a', { href: URL.createObjectURL(new Blob([xml], { type: 'application/xml' })), download: `${invoice().number}.xml` });
-  a.click();
-  URL.revokeObjectURL(a.href);
-  toast('E-Rechnung (XRechnung 3.0) heruntergeladen');
+  downloadXml(invoice());
 }
 
 $('#export-pdf').addEventListener('click', exportPdf);
@@ -999,6 +1034,8 @@ function renderArchive() {
       el('span', { className: 'invoice-amount mono', textContent: gross }),
       el('span', { className: `badge badge-${inv.status}` }, isLocked(inv) ? icon('lock') : '', isLocked(inv) ? 'Abgeschlossen' : 'Entwurf'),
       el('div', { className: 'invoice-actions' },
+        isLocked(inv) && el('button', { type: 'button', className: 'icon-btn', title: 'PDF herunterladen', ariaLabel: `${inv.number} als PDF herunterladen`, onclick: () => downloadPdf(inv) }, icon('download')),
+        isLocked(inv) && el('button', { type: 'button', className: 'icon-btn', title: 'E-Rechnung (XML) herunterladen', ariaLabel: `${inv.number} als E-Rechnung herunterladen`, onclick: () => downloadXml(inv) }, icon('code')),
         el('button', { type: 'button', className: 'icon-btn', title: 'Duplizieren', ariaLabel: `${inv.number} duplizieren`, onclick: () => duplicateInvoice(inv.id) }, icon('copy')),
         el('button', {
           type: 'button', className: 'icon-btn danger', disabled: isLocked(inv),

@@ -38,7 +38,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 
 **Verwalten**
 - **Festschreibung nach GoBD:** Beim ersten Export wird die Rechnung nach einer Bestätigung abgeschlossen – danach ist sie nicht mehr änderbar oder löschbar. Firmendaten, Steuerstatus und Design werden dabei eingefroren; Korrekturen laufen über eine Kopie mit neuer Nummer
-- **Rechnungsarchiv** mit Status (Entwurf/Abgeschlossen), Duplizieren und Löschen von Entwürfen mit Rückgängig
+- **Rechnungsarchiv** mit Status (Entwurf/Abgeschlossen), Duplizieren und Löschen von Entwürfen mit Rückgängig; abgeschlossene Rechnungen jederzeit erneut als **PDF oder E-Rechnung herunterladen**
 - **Einstellungen** für Firmendaten, Bankverbindung und **Logo-Upload**
 - **Rechnungsdesign:** Farbe per Farbfeld, Farbrad oder Hex-Code, Tabellenkopf gefüllt oder hell – die Schriftfarbe wird nach WCAG-Kontrast automatisch angepasst, damit auch helle Farben lesbar bleiben
 - Vorschau am Desktop als **ganze Seite** mit Zoom (+/−, Strg/⌘ + Mausrad, Touchpad)

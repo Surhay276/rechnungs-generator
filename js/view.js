@@ -5,8 +5,8 @@
  */
 import {
   toCents, formatEUR, unitLabel, dueDate, skontoInfo, isValidIBAN, epcPayload, formatAddress, formatIBAN, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=24';
-import { invoiceTheme } from './color.js?v=24';
+} from './invoice.js?v=25';
+import { invoiceTheme } from './color.js?v=25';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
 
