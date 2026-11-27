@@ -4,6 +4,9 @@
  * Läuft im Browser und in Node (für die Tests).
  *
  * Koordinaten: Punkt (1/72 Zoll), Ursprung **oben links** – umgerechnet wird erst beim Schreiben.
+ *
+ * Optional als PDF/A-3b (ISO 19005-3) zur Langzeitarchivierung – mit XMP-Metadaten, sRGB-Farbprofil
+ * und eingebetteten Dateien (z. B. die XML einer ZUGFeRD-/Factur-X-Rechnung).
  */
 
 export const MM = 72 / 25.4;
@@ -145,6 +148,46 @@ function textString(s) {
   return `<${hex.toUpperCase()}>`;
 }
 
+/** PDF-String in Klammern (nur ASCII, Sonderzeichen maskiert). */
+const literal = (s) => `(${String(s).replace(/[^\x20-\x7e]/g, '_').replace(/([()\\])/g, '\\$1')})`;
+
+const pad2 = (n) => String(n).padStart(2, '0');
+/** Datum als PDF-Datum in UTC: D:20261127120000+00'00' */
+function pdfDateString(d) {
+  return `D:${d.getUTCFullYear()}${pad2(d.getUTCMonth() + 1)}${pad2(d.getUTCDate())}${pad2(d.getUTCHours())}${pad2(d.getUTCMinutes())}${pad2(d.getUTCSeconds())}+00'00'`;
+}
+/** Dasselbe Datum für XMP: 2026-11-27T12:00:00+00:00 – muss zum Info-Verzeichnis passen (PDF/A). */
+const xmpDate = (d) => `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}T${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}:${pad2(d.getUTCSeconds())}+00:00`;
+
+/** Dokument-ID (16 Byte als Hex) – deterministisch aus Inhaltsmerkmalen (FNV-1a, viermal versetzt). */
+function documentId(seed) {
+  let out = '';
+  for (let round = 0; round < 4; round++) {
+    let h = 0x811c9dc5 ^ round;
+    for (const ch of `${round}:${seed}`) h = Math.imul(h ^ ch.codePointAt(0), 0x01000193) >>> 0;
+    out += h.toString(16).padStart(8, '0');
+  }
+  return out.toUpperCase();
+}
+
+const xmlEsc = (s) => String(s ?? '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+/** XMP-Metadaten für PDF/A-3b; die Angaben spiegeln das Info-Verzeichnis. */
+function xmpPacket(info, date, extra) {
+  const alt = (v) => `<rdf:Alt><rdf:li xml:lang="x-default">${xmlEsc(v)}</rdf:li></rdf:Alt>`;
+  return `<?xpacket begin="\uFEFF" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/"><pdfaid:part>3</pdfaid:part><pdfaid:conformance>B</pdfaid:conformance></rdf:Description>
+<rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:format>application/pdf</dc:format>${info.Title ? `<dc:title>${alt(info.Title)}</dc:title>` : ''}${info.Author ? `<dc:creator><rdf:Seq><rdf:li>${xmlEsc(info.Author)}</rdf:li></rdf:Seq></dc:creator>` : ''}${info.Subject ? `<dc:description>${alt(info.Subject)}</dc:description>` : ''}</rdf:Description>
+<rdf:Description rdf:about="" xmlns:xmp="http://ns.adobe.com/xap/1.0/">${info.Creator ? `<xmp:CreatorTool>${xmlEsc(info.Creator)}</xmp:CreatorTool>` : ''}<xmp:CreateDate>${xmpDate(date)}</xmp:CreateDate><xmp:ModifyDate>${xmpDate(date)}</xmp:ModifyDate></rdf:Description>
+<rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"><pdf:Producer>${xmlEsc(info.Producer)}</pdf:Producer></rdf:Description>
+${extra.join('\n')}
+</rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`;
+}
+
 export const hexToRgb = (hex) => {
   const h = String(hex).replace('#', '');
   return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
@@ -159,6 +202,16 @@ export class PdfDocument {
     this.fonts = [];
     this.images = [];
     this.info = {};
+    this.attachments = [];
+    this.pdfa = null; // { iccProfile: Uint8Array, xmp: [zusätzliche rdf:Description-Blöcke] }
+  }
+
+  /**
+   * Hängt eine Datei an (PDF/A-3: „Associated File“ mit Beziehung zum Dokument).
+   * @param relationship Alternative | Data | Source | Supplement
+   */
+  attach({ name, data, mime = 'application/octet-stream', description = '', relationship = 'Data', modified = new Date() }) {
+    this.attachments.push({ name, data: typeof data === 'string' ? enc.encode(data) : data, mime, description, relationship, modified });
   }
 
   addFont(name, buffer) {
@@ -304,15 +357,43 @@ export class PdfDocument {
       pageIds.push(pageId);
     }
     set(pagesId, `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`);
-    set(catalogId, `<< /Type /Catalog /Pages ${pagesId} 0 R /Lang (de-DE) /ViewerPreferences << /DisplayDocTitle true >> >>`);
 
-    const d = this.info.date ?? new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const date = `D:${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+    const date = this.info.date ?? new Date();
+    const pdfDate = pdfDateString(date);
+
+    // Angehängte Dateien (Embedded Files + Associated Files nach PDF/A-3)
+    const fileSpecs = [];
+    for (const file of this.attachments) {
+      const efId = reserve();
+      const ef = await stream(`/Type /EmbeddedFile /Subtype /${file.mime.replace('/', '#2F')} /Params << /ModDate (${pdfDateString(file.modified)}) /Size ${file.data.length} >>`, file.data);
+      set(efId, ef);
+      const fsId = reserve();
+      set(fsId, `<< /Type /Filespec /F ${literal(file.name)} /UF ${textString(file.name)} /Desc ${textString(file.description)} /AFRelationship /${file.relationship} /EF << /F ${efId} 0 R /UF ${efId} 0 R >> >>`);
+      fileSpecs.push({ name: file.name, id: fsId });
+    }
+
+    const info = {
+      Title: this.info.title, Author: this.info.author, Subject: this.info.subject, Creator: this.info.creator, Producer: 'Rechnungsgenerator',
+    };
+    const catalog = [`/Type /Catalog /Pages ${pagesId} 0 R /Lang (de-DE) /ViewerPreferences << /DisplayDocTitle true >>`];
+    if (fileSpecs.length) {
+      const names = [...fileSpecs].sort((a, b) => (a.name < b.name ? -1 : 1)).map((f) => `${literal(f.name)} ${f.id} 0 R`).join(' ');
+      catalog.push(`/Names << /EmbeddedFiles << /Names [${names}] >> >> /AF [${fileSpecs.map((f) => `${f.id} 0 R`).join(' ')}]`);
+    }
+    if (this.pdfa) {
+      const metaId = reserve();
+      set(metaId, await stream('/Type /Metadata /Subtype /XML', xmpPacket(info, date, this.pdfa.xmp ?? []), { compress: false }));
+      const iccId = reserve();
+      set(iccId, await stream('/N 3', this.pdfa.iccProfile));
+      const intentId = reserve();
+      set(intentId, `<< /Type /OutputIntent /S /GTS_PDFA1 /OutputConditionIdentifier (sRGB IEC61966-2.1) /Info (sRGB IEC61966-2.1) /DestOutputProfile ${iccId} 0 R >>`);
+      catalog.push(`/Metadata ${metaId} 0 R /OutputIntents [${intentId} 0 R] /MarkInfo << /Marked false >>`);
+    }
+    set(catalogId, `<< ${catalog.join(' ')} >>`);
+
     const infoId = reserve();
-    const infoEntries = Object.entries({ Title: this.info.title, Author: this.info.author, Subject: this.info.subject, Creator: this.info.creator, Producer: 'Rechnungsgenerator' })
-      .filter(([, v]) => v).map(([k, v]) => `/${k} ${textString(v)}`);
-    set(infoId, `<< ${infoEntries.join(' ')} /CreationDate (${date}) /ModDate (${date}) >>`);
+    const infoEntries = Object.entries(info).filter(([, v]) => v).map(([k, v]) => `/${k} ${textString(v)}`);
+    set(infoId, `<< ${infoEntries.join(' ')} /CreationDate (${pdfDate}) /ModDate (${pdfDate}) >>`);
 
     // Zusammensetzen mit Querverweistabelle (Byte-Positionen jedes Objekts)
     const chunks = [enc.encode('%PDF-1.7\n%âãÏÓ\n')];
@@ -327,8 +408,9 @@ export class PdfDocument {
       push('\nendobj\n');
     });
     const xref = length;
+    const fileId = documentId(`${this.info.title}|${pdfDate}|${length}`);
     push(`xref\n0 ${objects.length + 1}\n0000000000 65535 f \n${offsets.map((o) => `${String(o).padStart(10, '0')} 00000 n \n`).join('')}`);
-    push(`trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R /Info ${infoId} 0 R >>\nstartxref\n${xref}\n%%EOF\n`);
+    push(`trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R /Info ${infoId} 0 R /ID [<${fileId}> <${fileId}>] >>\nstartxref\n${xref}\n%%EOF\n`);
 
     const out = new Uint8Array(length);
     let pos = 0;

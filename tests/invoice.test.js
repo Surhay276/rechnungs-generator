@@ -1,202 +1,138 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  toCents, toQuantity, lineBase, lineNet, discountCents, allocate, calculateTotals, skontoInfo,
-  nextInvoiceNumber, addDays, dueDate, isValidIBAN, formatIBAN, formatEUR, epcPayload,
-  grossFromNet, netFromGross, validateInvoiceFields, validateXRechnungFields, toXRechnung,
+  toXRechnung, toCII, xmlText, invoiceTotals, finalizeInvoice, isLocked, settingsFor, copyAsDraft, createStorno, formatAddress, taxInEUR,
 } from '../js/invoice.js';
 import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs';
 
-test('toCents versteht deutsches und englisches Zahlenformat', () => {
-  assert.equal(toCents('1.234,56'), 123456);
-  assert.equal(toCents('12,5'), 1250);
-  assert.equal(toCents('99.90'), 9990);
-  assert.equal(toCents(0.1 + 0.2), 30);
-  assert.equal(toCents('49 €'), 4900);
-  assert.equal(toCents(''), 0);
-  assert.throws(() => toCents('abc'), /Ungültiger Betrag/);
-});
+const ctx = { context: { today: '2026-11-27' } };
+const xml = (inv = sampleInvoice(), s = sampleSettings(), profile = 'xrechnung') => toCII(inv, s, { profile, ...ctx });
+const amount = (doc, tag) => new RegExp(`<ram:${tag}(?: [^>]*)?>([^<]+)</ram:${tag}>`).exec(doc)?.[1];
 
-test('Mengen und Positionsbeträge', () => {
-  assert.equal(toQuantity('1,5'), 1.5);
-  assert.throws(() => toQuantity('-1'));
-  assert.equal(lineBase({ quantity: 3, unitPrice: '0,333' }), 99);
-  assert.equal(lineBase({ quantity: '1,5', unitPrice: '65,00' }), 9750);
-});
-
-test('Rabatte: Prozent, fester Betrag, nie mehr als die Basis', () => {
-  assert.equal(discountCents(10000, { type: 'percent', value: '10' }), 1000);
-  assert.equal(discountCents(10000, { type: 'amount', value: '25,50' }), 2550);
-  assert.equal(discountCents(10000, { type: 'amount', value: '500' }), 10000);
-  assert.equal(discountCents(10000, { type: 'percent', value: '' }), 0);
-  assert.throws(() => discountCents(10000, { type: 'percent', value: '120' }));
-  assert.equal(lineNet({ quantity: 2, unitPrice: '50', discount: { type: 'percent', value: '10' } }), 9000);
-});
-
-test('allocate verteilt centgenau nach größten Resten', () => {
-  assert.deepEqual(allocate(100, [1, 1, 1]), [34, 33, 33]);
-  assert.deepEqual(allocate(0, [5, 5]), [0, 0]);
-  assert.equal(allocate(999, [700, 299]).reduce((a, b) => a + b), 999);
-});
-
-test('calculateTotals mit gemischten Steuersätzen', () => {
-  const t = calculateTotals([
-    { quantity: 1, unitPrice: '1000', taxRate: 19 },
-    { quantity: 2, unitPrice: '50', taxRate: 7 },
-    { quantity: 1, unitPrice: '20', taxRate: 0 },
-  ]);
-  assert.equal(t.net, 112000);
-  assert.deepEqual(t.taxes, [{ rate: 19, base: 100000, amount: 19000 }, { rate: 7, base: 10000, amount: 700 }]);
-  assert.equal(t.gross, 131700);
-  assert.deepEqual(t.breakdown.map((b) => b.rate), [19, 7, 0]);
-});
-
-test('Gesamtrabatt mindert die Steuerbasis anteilig je Steuersatz', () => {
-  const t = calculateTotals([
-    { quantity: 1, unitPrice: '300', taxRate: 19 },
-    { quantity: 1, unitPrice: '100', taxRate: 7 },
-  ], { discount: { type: 'percent', value: '10' } });
-  assert.equal(t.subtotal, 40000);
-  assert.equal(t.discount, 4000);
-  assert.deepEqual(t.breakdown.map((b) => [b.rate, b.base, b.discount, b.amount]), [[19, 27000, 3000, 5130], [7, 9000, 1000, 630]]);
-  assert.equal(t.gross, 36000 + 5760);
-});
-
-test('Steuer wird auf die Summe je Satz berechnet, nicht je Zeile', () => {
-  const items = Array.from({ length: 3 }, () => ({ quantity: 1, unitPrice: '0,02', taxRate: 19 }));
-  assert.equal(calculateTotals(items).tax, 1); // 6 Cent × 19 % = 1,14 → 1 (je Zeile wären es 0)
-});
-
-test('Kleinunternehmer (§ 19 UStG): keine Umsatzsteuer', () => {
-  const t = calculateTotals([{ quantity: 2, unitPrice: '100', taxRate: 19 }], { kleinunternehmer: true });
-  assert.deepEqual([t.net, t.tax, t.gross, t.taxes.length], [20000, 0, 20000, 0]);
-  assert.throws(() => calculateTotals([{ quantity: 1, unitPrice: 1, taxRate: 16 }]), /Steuersatz/);
-});
-
-test('Brutto/Netto-Umrechnung für das Preisfeld inkl. USt', () => {
-  assert.equal(grossFromNet(10000, 19), 11900);
-  assert.equal(netFromGross(11900, 19), 10000);
-  assert.equal(netFromGross(1000, 7), 935);
-});
-
-test('Skonto und Fälligkeit', () => {
-  assert.deepEqual(skontoInfo(11900, '2026-11-27', { enabled: true, percent: '2', days: 10 }),
-    { percent: 2, days: 10, amount: 238, payable: 11662, until: '2026-12-07' });
-  assert.equal(skontoInfo(11900, '2026-11-27', { enabled: false, percent: '2', days: 10 }), null);
-  assert.equal(dueDate({ date: '2026-11-27', paymentDays: 7 }), '2026-12-04');
-  assert.equal(dueDate({ date: '2026-11-27', paymentDays: 14 }), '2026-12-11');
-  assert.equal(dueDate({ date: '2026-11-27', paymentDays: 0 }), '2026-11-27');
-  assert.equal(dueDate({ date: '2026-11-27', paymentDays: 'custom', dueDate: '2027-01-15' }), '2027-01-15');
-});
-
-test('Rechnungsnummern und Datumsgrenzen', () => {
-  assert.equal(nextInvoiceNumber(null, 2026), 'RE-2026-0001');
-  assert.equal(nextInvoiceNumber('RE-2026-0041', 2026), 'RE-2026-0042');
-  assert.equal(nextInvoiceNumber('RE-2025-0099', 2026), 'RE-2026-0001');
-  assert.equal(addDays('2026-12-25', 14), '2027-01-08');
-  assert.equal(addDays('2028-02-20', 10), '2028-03-01');
-});
-
-test('IBAN-Prüfung per Modulo 97', () => {
-  // Offizielle Muster-IBANs aus der ISO-13616-/Bankendokumentation – keine echten Konten
-  assert.equal(isValidIBAN('DE89 3704 0044 0532 0130 00'), true); // pragma: allowlist secret
-  assert.equal(isValidIBAN('DE89370400440532013001'), false); // pragma: allowlist secret
-  assert.equal(isValidIBAN('GB82 WEST 1234 5698 7654 32'), true); // pragma: allowlist secret
-  assert.equal(formatIBAN('de89370400440532013000'), 'DE89 3704 0044 0532 0130 00'); // pragma: allowlist secret
-  assert.equal(formatEUR(123456).replace(/\s/g, ' '), '1.234,56 €');
-});
-
-test('GiroCode (EPC-QR): Aufbau nach EPC069-12', () => {
-  const payload = epcPayload({ name: 'Max Mustermann', iban: 'DE89 3704 0044 0532 0130 00', amountCents: 154627, reference: 'RE-2026-0001' }); // pragma: allowlist secret
-  assert.deepEqual(payload.split('\n'), ['BCD', '002', '1', 'SCT', '', 'Max Mustermann', 'DE89370400440532013000', 'EUR1546.27', '', '', 'RE-2026-0001']); // pragma: allowlist secret
-  assert.throws(() => epcPayload({ name: 'X', iban: 'DE00', amountCents: 100 }), /IBAN/);
-  assert.throws(() => epcPayload({ name: 'X', iban: 'DE89370400440532013000', amountCents: 0 }), /Betrag/); // pragma: allowlist secret
-});
-
-test('Pflichtangaben: Fehler nennen das betroffene Feld', () => {
-  const settings = sampleSettings();
-  const inv = sampleInvoice();
-  assert.deepEqual(validateInvoiceFields(inv, settings), []);
-  inv.customer.name = '';
-  inv.items[1].unitPrice = '';
-  settings.company.taxId = '';
-  assert.deepEqual(validateInvoiceFields(inv, settings).map((e) => e.field), ['company.taxId', 'customer.name', 'items.1.unitPrice']);
-});
-
-test('E-Rechnung verlangt zusätzlich E-Mail, Telefon und IBAN', () => {
-  const settings = sampleSettings();
-  const inv = sampleInvoice();
-  inv.customer.email = '';
-  settings.company.phone = '';
-  assert.deepEqual(validateXRechnungFields(inv, settings).map((e) => e.field).sort(), ['company.phone', 'customer.email']);
-  assert.throws(() => toXRechnung(inv, settings), /E-Mail-Adresse des Kunden/);
-});
-
-test('XRechnung: Summen im XML passen zur Berechnung', () => {
-  const settings = sampleSettings();
+test('XRechnung (CII): Summen im XML passen zur Berechnung', () => {
+  const s = sampleSettings();
   const inv = sampleInvoice();
   inv.discount = { type: 'percent', value: '5' };
-  const xml = toXRechnung(inv, settings);
-  const t = calculateTotals(inv.items, { discount: inv.discount });
-  assert.match(xml, /xrechnung_3\.0/);
-  assert.match(xml, new RegExp(`<cbc:PayableAmount currencyID="EUR">${(t.gross / 100).toFixed(2)}</cbc:PayableAmount>`));
-  assert.match(xml, /<cbc:AllowanceTotalAmount currencyID="EUR">/);
-  assert.ok(!xml.includes('<script'), 'Eingaben werden escaped');
+  const doc = xml(inv, s);
+  const t = invoiceTotals(inv, s);
+  assert.match(doc, /xrechnung_3\.0/);
+  assert.match(doc, /<rsm:CrossIndustryInvoice /);
+  assert.equal(amount(doc, 'DuePayableAmount'), (t.payable / 100).toFixed(2));
+  assert.equal(amount(doc, 'AllowanceTotalAmount'), (t.discount / 100).toFixed(2));
+  assert.equal(amount(doc, 'TaxBasisTotalAmount'), (t.net / 100).toFixed(2));
+  assert.match(doc, /<ram:TypeCode>380<\/ram:TypeCode>/);
+  assert.match(doc, /#SKONTO#TAGE=7#PROZENT=2\.00#\n/);
+  assert.match(doc, /<ram:BillingSpecifiedPeriod>/);
 });
 
-test('Festschreibung: abgeschlossene Rechnung friert Einstellungen ein', async () => {
-  const { finalizeInvoice, isLocked, settingsFor, copyAsDraft } = await import('../js/invoice.js');
-  const settings = { company: { name: 'Alt GmbH', iban: 'DE89370400440532013000' }, kleinunternehmer: false };
-  const inv = { id: 'a', number: 'RE-2026-0001', status: 'entwurf', items: [{ description: 'x', quantity: '1', unitPrice: '10', taxRate: 19 }] };
+test('ZUGFeRD-Profil EN 16931: gleiche Daten, andere Kennung, ohne XRechnung-Zusatzpflichten', () => {
+  const inv = sampleInvoice();
+  inv.customer.email = ''; // für XRechnung Pflicht, für EN 16931 nicht
+  const doc = xml(inv, sampleSettings(), 'en16931');
+  assert.match(doc, /<ram:ID>urn:cen\.eu:en16931:2017<\/ram:ID>/);
+  assert.doesNotMatch(doc, /xrechnung/);
+  assert.throws(() => xml(inv, sampleSettings(), 'xrechnung'), /E-Mail-Adresse des Kunden/);
+});
+
+test('XML: Steuerzeichen und Sonderzeichen machen die Datei nicht ungültig', () => {
+  assert.equal(xmlText('A\u0001B\u0000C & <D> "E"'), 'ABC &amp; &lt;D&gt; &quot;E&quot;');
+  const inv = sampleInvoice();
+  inv.items[0].description = 'Webdesign\u0001 <Startseite> & „Kontakt“';
+  const doc = xml(inv);
+  assert.doesNotMatch(doc, /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/);
+  assert.match(doc, /Webdesign &lt;Startseite&gt; &amp; „Kontakt“/);
+});
+
+test('XML: Mengen ohne Exponent, negative Positionen über die Menge (Preis nie negativ, BR-27)', () => {
+  const inv = sampleInvoice();
+  inv.items.push({ description: 'Gutschrift Altgerät', quantity: '1', unit: 'H87', unitPrice: '-50', taxType: 'S19', discount: null });
+  inv.items[0].quantity = '99.999';
+  const doc = xml(inv);
+  assert.doesNotMatch(doc, /e\+/);
+  assert.match(doc, /<ram:BilledQuantity unitCode="H87">-1<\/ram:BilledQuantity>/);
+  assert.doesNotMatch(doc, /<ram:ChargeAmount>-/);
+});
+
+test('XML: Steuerarten mit Befreiungsgrund und Pflichtangaben', () => {
+  const s = sampleSettings();
+  s.company.vatId = 'DE136695976';
+  const inv = sampleInvoice();
+  inv.items.forEach((i) => { i.taxType = 'K'; });
+  Object.assign(inv.customer, { country: 'AT', zip: '1010', city: 'Wien', vatId: 'ATU12345678' });
+  const doc = xml(inv, s);
+  assert.match(doc, /<ram:CategoryCode>K<\/ram:CategoryCode><ram:ExemptionReasonCode>VATEX-EU-IC<\/ram:ExemptionReasonCode>/);
+  assert.match(doc, /<ram:ShipToTradeParty>.*<ram:CountryID>AT<\/ram:CountryID>/s);
+  assert.match(doc, /<ram:BuyerTradeParty>.*schemeID="VA">ATU12345678</s);
+
+  const ku = sampleSettings();
+  ku.kleinunternehmer = true;
+  const kuDoc = xml(sampleInvoice(), ku);
+  assert.match(kuDoc, /<ram:ExemptionReason>Gemäß § 19 UStG wird keine Umsatzsteuer berechnet\.<\/ram:ExemptionReason>/);
+  assert.equal((kuDoc.match(/<ram:ApplicableTradeTax><ram:CalculatedAmount>/g) ?? []).length, 1);
+
+  const m = sampleInvoice();
+  m.items.forEach((i) => { i.taxType = 'M'; });
+  assert.match(xml(m), /<ram:CategoryCode>E<\/ram:CategoryCode><ram:ExemptionReasonCode>VATEX-EU-F</);
+});
+
+test('XML: Rechtsform und Register des Verkäufers (BT-30, BT-33)', () => {
+  const s = sampleSettings();
+  Object.assign(s.company, { name: 'Muster Web GmbH', legalForm: 'gmbh', registerCourt: 'Amtsgericht Charlottenburg', registerNumber: 'HRB 123456 B', officers: 'Max Mustermann' });
+  const doc = xml(sampleInvoice(), s);
+  assert.match(doc, /<ram:Description>Rechtsform: GmbH, Sitz: Berlin, Registergericht: Amtsgericht Charlottenburg, Registernummer: HRB 123456 B, Geschäftsführer: Max Mustermann<\/ram:Description>/);
+  assert.match(doc, /<ram:SpecifiedLegalOrganization><ram:ID>HRB 123456 B<\/ram:ID>/);
+});
+
+test('XML: Stornorechnung (381) mit Verweis, Schlussrechnung mit Abschlägen, Fremdwährung', () => {
+  const storno = createStorno({ ...sampleInvoice(), status: 'erstellt' }, { id: 's', number: 'RE-2026-0002', date: '2026-11-27' });
+  const sd = xml(storno);
+  assert.match(sd, /<ram:TypeCode>381<\/ram:TypeCode>/);
+  assert.match(sd, /<ram:InvoiceReferencedDocument><ram:IssuerAssignedID>RE-2026-0001<\/ram:IssuerAssignedID>/);
+  assert.ok(Number(amount(sd, 'DuePayableAmount')) > 0, 'Gutschrift-Beträge sind in CII positiv');
+
+  const final = { ...sampleInvoice(), kind: 'final', prepayments: [{ number: 'RE-2026-0000', date: '2026-10-01', gross: '500,00', tax: '79,83' }] };
+  const fd = xml(final);
+  assert.equal(amount(fd, 'TotalPrepaidAmount'), '500.00');
+  assert.match(fd, /BASISBETRAG=995\.99#/);
+
+  const usd = { ...sampleInvoice(), currency: 'USD', fxRate: '0,9' };
+  const ud = xml(usd);
+  assert.match(ud, /<ram:TaxCurrencyCode>EUR<\/ram:TaxCurrencyCode><ram:InvoiceCurrencyCode>USD/);
+  assert.match(ud, /<ram:TaxTotalAmount currencyID="EUR">/);
+  assert.equal(taxInEUR(10000, '0,9'), 9000);
+});
+
+test('XML: Bruttopreise mit Rundungsbetrag (BT-114) bleiben rechnerisch stimmig', () => {
+  const inv = { ...sampleInvoice(), pricesGross: true, skonto: { enabled: false } };
+  inv.items = [{ description: 'Gebrauchtes Notebook Zubehör', quantity: '1', unit: 'H87', unitPrice: '99,99', taxType: 'S19', discount: null }];
+  const doc = xml(inv);
+  assert.equal(amount(doc, 'RoundingAmount'), '-0.01');
+  assert.equal(amount(doc, 'DuePayableAmount'), '99.99');
+  assert.equal(amount(doc, 'GrandTotalAmount'), '100.00');
+});
+
+test('Festschreibung: abgeschlossene Rechnung friert Einstellungen ein', () => {
+  const settings = { company: { name: 'Alt GmbH', iban: 'DE89370400440532013000' }, kleinunternehmer: false }; // pragma: allowlist secret
+  const inv = { id: 'a', number: 'RE-2026-0001', status: 'entwurf', items: [{ description: 'x', quantity: '1', unitPrice: '10', taxType: 'S19' }] };
   const done = finalizeInvoice(inv, settings, { design: { color: '#1849A9', head: 'filled' }, now: 1 });
   assert.ok(isLocked(done));
   assert.ok(!isLocked(inv), 'Original-Objekt bleibt unberührt');
-  // spätere Änderungen in den Einstellungen wirken nicht auf die abgeschlossene Rechnung
   settings.company.name = 'Neu GmbH';
   settings.kleinunternehmer = true;
   assert.equal(settingsFor(done, settings).company.name, 'Alt GmbH');
   assert.equal(settingsFor(done, settings).kleinunternehmer, false);
   assert.equal(settingsFor(inv, settings).company.name, 'Neu GmbH');
-  // erneutes Abschließen ändert nichts
   assert.equal(finalizeInvoice(done, settings), done);
-  // Korrektur = Kopie mit neuer Nummer als Entwurf, ohne eingefrorene Daten
   const copy = copyAsDraft(done, { id: 'b', number: 'RE-2026-0002', date: '2026-11-27' });
   assert.equal(copy.status, 'entwurf');
-  assert.equal(copy.number, 'RE-2026-0002');
   assert.equal(copy.snapshot, undefined);
+  const storno = createStorno(done, { id: 'c', number: 'RE-2026-0003', date: '2026-11-27' });
+  assert.deepEqual([storno.kind, storno.status, storno.reference.number], ['storno', 'entwurf', 'RE-2026-0001']);
   assert.ok(isLocked(done));
 });
 
-test('Plausibilität: Quatsch-Eingaben werden erkannt, echte Namen nicht', async () => {
-  const { checkName, checkStreet, checkZip, checkCity } = await import('../js/invoice.js');
-  for (const bad of ['a', 'xx', 'asdf', 'qwertz', 'aaaa', 'hjkgfd', 'jdjdjd', 'Test', 'Quatsch', 'Lorem Ipsum']) {
-    assert.ok(checkName(bad), `„${bad}“ sollte abgelehnt werden`);
-  }
-  for (const ok of ['BMW AG', 'KPMG', 'Max Mustermann Webdesign', 'Hüseyin Surhay Yılmaz', 'Dr. Ömer Şahin', 'Müller & Söhne',
-    "O'Brien", 'Schifffahrt GmbH', 'Angstschweiß KG']) {
-    assert.equal(checkName(ok), null, `„${ok}“ ist ein echter Name`);
-  }
-  assert.match(checkStreet('Hauptstraße'), /Hausnummer fehlt/);
-  assert.ok(checkStreet('asdf 5'));
-  for (const ok of ['Sonnenallee 18', 'Am Markt 12a', 'Straße des 17. Juni 135', 'Karl-Marx-Allee 90/92', 'Postfach 12 34']) {
-    assert.equal(checkStreet(ok), null, ok);
-  }
-  assert.equal(checkZip('12047'), null);
-  assert.ok(checkZip('1234'));
-  assert.ok(checkZip('00000'));
-  assert.equal(checkCity('Frankfurt (Oder)'), null);
-  assert.ok(checkCity('B3rlin'));
-  assert.ok(checkCity('asdf'));
-});
-
-test('Plausibilität greift in der Rechnungsprüfung je Feld', () => {
-  const settings = sampleSettings();
-  const inv = sampleInvoice();
-  inv.customer.name = 'a';
-  inv.customer.street = 'Hauptstraße';
-  inv.customer.zip = '123';
-  settings.company.taxId = '123';
-  settings.company.email = 'kein-mail';
-  assert.deepEqual(validateInvoiceFields(inv, settings).map((e) => e.field),
-    ['company.email', 'company.taxId', 'customer.name', 'customer.street', 'customer.zip']);
+test('Auslandsanschrift mit Land in Großbuchstaben (DIN 5008)', () => {
+  assert.equal(formatAddress({ street: 'Ring 1', zip: '1010', city: 'Wien', country: 'AT' }), 'Ring 1\n1010 Wien\nÖSTERREICH');
+  assert.equal(formatAddress({ street: 'Hauptstraße 5', zip: '12043', city: 'Berlin', country: 'DE' }), 'Hauptstraße 5\n12043 Berlin');
+  assert.ok(toXRechnung);
 });

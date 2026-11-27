@@ -5,6 +5,28 @@
  */
 import { PdfDocument, MM, wrapText } from './pdf.js?v=25';
 
+export const FACTUR_X_FILE = 'factur-x.xml';
+
+/** XMP-Erweiterung für Factur-X/ZUGFeRD: beschreibt die eingebettete XML (Pflicht für PDF/A-3). */
+function facturXmp(conformance = 'EN 16931') {
+  const prop = (name, description) => '<rdf:li rdf:parseType="Resource">'
+    + `<pdfaProperty:name>${name}</pdfaProperty:name><pdfaProperty:valueType>Text</pdfaProperty:valueType>`
+    + `<pdfaProperty:category>external</pdfaProperty:category><pdfaProperty:description>${description}</pdfaProperty:description></rdf:li>`;
+  return '<rdf:Description rdf:about="" xmlns:pdfaExtension="http://www.aiim.org/pdfa/ns/extension/" xmlns:pdfaSchema="http://www.aiim.org/pdfa/ns/schema#" xmlns:pdfaProperty="http://www.aiim.org/pdfa/ns/property#">'
+    + '<pdfaExtension:schemas><rdf:Bag><rdf:li rdf:parseType="Resource">'
+    + '<pdfaSchema:schema>Factur-X PDFA Extension Schema</pdfaSchema:schema>'
+    + '<pdfaSchema:namespaceURI>urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#</pdfaSchema:namespaceURI>'
+    + '<pdfaSchema:prefix>fx</pdfaSchema:prefix><pdfaSchema:property><rdf:Seq>'
+    + prop('DocumentFileName', 'name of the embedded XML invoice file')
+    + prop('DocumentType', 'INVOICE')
+    + prop('Version', 'The actual version of the Factur-X data')
+    + prop('ConformanceLevel', 'The conformance level of the Factur-X data')
+    + '</rdf:Seq></pdfaSchema:property></rdf:li></rdf:Bag></pdfaExtension:schemas></rdf:Description>\n'
+    + '<rdf:Description rdf:about="" xmlns:fx="urn:factur-x:pdfa:CrossIndustryDocument:invoice:1p0#">'
+    + `<fx:DocumentType>INVOICE</fx:DocumentType><fx:DocumentFileName>${FACTUR_X_FILE}</fx:DocumentFileName>`
+    + `<fx:Version>1.0</fx:Version><fx:ConformanceLevel>${conformance}</fx:ConformanceLevel></rdf:Description>`;
+}
+
 const INK = '#1d2939';
 const INK_2 = '#344054';
 const GRAY = '#667085';
@@ -16,11 +38,18 @@ const LH = 1.45;
  * @param view   Ergebnis von buildInvoiceView()
  * @param fonts  { regular, semibold, bold } – TrueType-Dateien als ArrayBuffer/Uint8Array
  * @param logo   { width, height, rgb, alpha } – Rohpixel des Logos (optional)
+ * @param iccProfile  sRGB-Farbprofil – mit Profil entsteht ein PDF/A-3b (Langzeitarchiv)
+ * @param einvoice    { xml, conformance } – eingebettete E-Rechnung (ZUGFeRD 2 / Factur-X), setzt iccProfile voraus
  * @returns Promise<Uint8Array> – die fertige PDF-Datei
  */
-export async function createInvoicePdf(view, { fonts, logo = null, date = new Date() }) {
+export async function createInvoicePdf(view, { fonts, logo = null, date = new Date(), iccProfile = null, einvoice = null }) {
   const doc = new PdfDocument();
-  doc.info = { title: `Rechnung ${view.number}`, author: view.companyName, subject: `Rechnung ${view.number}`, creator: 'Rechnungsgenerator', date };
+  doc.info = { title: `${view.title} ${view.number}`, author: view.companyName, subject: `${view.title} ${view.number}`, creator: 'Rechnungsgenerator', date };
+  if (iccProfile) doc.pdfa = { iccProfile, xmp: einvoice ? [facturXmp(einvoice.conformance)] : [] };
+  if (einvoice) {
+    if (!iccProfile) throw new Error('ZUGFeRD braucht PDF/A-3 – bitte das Farbprofil mitgeben.');
+    doc.attach({ name: FACTUR_X_FILE, data: einvoice.xml, mime: 'text/xml', description: 'E-Rechnung (ZUGFeRD / Factur-X, EN 16931)', relationship: 'Alternative', modified: date });
+  }
   const R = doc.addFont('Inter-Regular', fonts.regular);
   const S = doc.addFont('Inter-SemiBold', fonts.semibold);
   const B = doc.addFont('Inter-Bold', fonts.bold);
@@ -65,7 +94,7 @@ export async function createInvoicePdf(view, { fonts, logo = null, date = new Da
   function newPage() {
     doc.addPage();
     y = top;
-    block(`Rechnung ${view.number} · Fortsetzung`, left, y, W, { size: 8, color: GRAY });
+    block(`${view.title} ${view.number} · Fortsetzung`, left, y, W, { size: 8, color: GRAY });
     y += 9 * MM;
   }
   const ensure = (h) => { if (y + h > bodyBottom) { newPage(); return true; } return false; };
@@ -128,9 +157,9 @@ export async function createInvoicePdf(view, { fonts, logo = null, date = new Da
     { key: 'pos', head: 'Pos.', fixed: Math.max(11 * MM, S.width('Pos.', headSize) + 2 * padX + 1) },
     { key: 'description', head: 'Beschreibung' },
     { key: 'quantity', head: 'Menge', num: true },
-    { key: 'price', head: 'Einzelpreis', num: true },
+    { key: 'price', head: view.priceHead ?? 'Einzelpreis', num: true },
     view.showTax && { key: 'tax', head: 'USt', num: true },
-    { key: 'total', head: 'Betrag', num: true },
+    { key: 'total', head: view.totalHead ?? 'Betrag', num: true },
   ].filter(Boolean);
   for (const col of cols) {
     if (col.num) col.width = Math.max(S.width(col.head, headSize), widest(view.rows.map((r) => r[col.key]), R, BASE)) + 4.5 * MM + padX + 1;
@@ -198,11 +227,12 @@ export async function createInvoicePdf(view, { fonts, logo = null, date = new Da
     }
   });
 
-  // ---------- Kleinunternehmer-Hinweis ----------
-  if (view.kuNote) {
-    ensure(5 * MM + BASE * LH);
-    y += 5 * MM + block(view.kuNote, left, y + 5 * MM, W);
-  }
+  // ---------- Steuerhinweise (§ 14 Abs. 4 Nr. 8, § 14a, § 14b UStG) ----------
+  view.notes.forEach((note, i) => {
+    const gap = i ? 1.5 * MM : 5 * MM;
+    ensure(gap + measure(note, W));
+    y += gap + block(note, left, y + gap, W);
+  });
 
   // ---------- Zahlungshinweis + GiroCode ----------
   if (view.payTexts.length || view.qr) {
