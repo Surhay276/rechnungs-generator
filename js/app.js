@@ -1,7 +1,7 @@
 import {
   calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays,
   formatIBAN, validateInvoiceFields, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=9';
+} from './invoice.js?v=10';
 
 const STORAGE_KEY = 'rechnungs-generator:v1';
 const $ = (sel, root = document) => root.querySelector(sel);
@@ -340,7 +340,8 @@ function applyZoom(anchor) {
   const ay = anchor ? anchor.y + paperFit.scrollTop : 0;
   preview.style.setProperty('--paper-zoom', zoom.toFixed(4));
   paperFit.classList.toggle('is-zoomed', desktop.matches && zoom > fit + 0.001);
-  $('#zoom-fit').textContent = `${Math.round(zoom * 100)} %`;
+  // „Ganze Seite“ gilt als 100 % – die Anzeige ist relativ dazu
+  $('#zoom-fit').textContent = `${Math.round((zoom / fit) * 100)} %`;
   $('#zoom-fit').classList.toggle('is-fit', manualZoom === null);
   $('#zoom-out').disabled = zoom <= ZOOM_MIN + 0.001;
   $('#zoom-in').disabled = zoom >= ZOOM_MAX - 0.001;
