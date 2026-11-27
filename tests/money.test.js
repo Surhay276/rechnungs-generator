@@ -5,7 +5,7 @@ import {
   centsToDecimal, centsToInput, formatQuantity, priceToInput, scaledToString,
 } from '../js/money.js';
 
-test('toCents: deutsches Format zuerst – Tausenderpunkt wird nicht zum Dezimalpunkt', () => {
+test('toCents: deutsches Format zuerst: Tausenderpunkt wird nicht zum Dezimalpunkt', () => {
   assert.equal(toCents('1.234,56'), 123456);
   assert.equal(toCents('1.500'), 150000); // nicht 1,50 €
   assert.equal(toCents('12.345.678'), 1234567800);

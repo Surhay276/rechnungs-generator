@@ -12,7 +12,7 @@ let files = [];
 try {
   files = readdirSync(dir).filter((f) => f.endsWith('-report.xml'));
 } catch {
-  console.error(`Kein Berichtsordner „${dir}“ gefunden – der Validator ist nicht gelaufen.`);
+  console.error(`Kein Berichtsordner „${dir}“ gefunden: der Validator ist nicht gelaufen.`);
   process.exit(1);
 }
 

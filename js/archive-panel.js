@@ -2,9 +2,9 @@
  * Seitenfenster „Rechnungen“: Liste aller Rechnungen mit Status, Download der Originale,
  * Duplizieren, Stornieren und Löschen von Entwürfen.
  */
-import { isLocked, copyAsDraft, createStorno, formatMoney, formatDate, kindOf, todayIso } from './invoice.js?v=26';
-import { $, el, icon, toast } from './ui.js?v=26';
-import { state, newInvoice, nextNumber, newId, totalsOf } from './store.js?v=26';
+import { isLocked, copyAsDraft, createStorno, formatMoney, formatDate, kindOf, todayIso } from './invoice.js?v=27';
+import { $, el, icon, toast } from './ui.js?v=27';
+import { state, newInvoice, nextNumber, newId, totalsOf } from './store.js?v=27';
 
 /** @param app  { openInvoice(id), resetEditor(), openDrawer(dialog), downloadPdf(inv), downloadXml(inv) } */
 export function initArchivePanel(app) {
@@ -24,7 +24,7 @@ export function initArchivePanel(app) {
           el('span', { className: 'invoice-number mono', textContent: inv.number || 'Ohne Nummer' }),
           el('span', { className: 'invoice-customer', textContent: [kind.key !== 'invoice' && kind.title, inv.customer.name || 'Kein Kunde'].filter(Boolean).join(' · ') }),
           el('span', { className: 'invoice-date', textContent: formatDate(inv.date) })),
-        el('span', { className: 'invoice-amount mono', textContent: totals ? formatMoney(sign * totals.total, inv.currency || 'EUR') : '–' }),
+        el('span', { className: 'invoice-amount mono', textContent: totals ? formatMoney(sign * totals.total, inv.currency || 'EUR') : '-' }),
         el('span', { className: `badge badge-${stornoed ? 'storno' : inv.status}` }, locked ? icon('lock') : '', stornoed ? 'Storniert' : locked ? 'Abgeschlossen' : 'Entwurf'),
         el('div', { className: 'invoice-actions' },
           locked && el('button', { type: 'button', className: 'icon-btn', title: 'PDF herunterladen', ariaLabel: `${inv.number} als PDF herunterladen`, onclick: () => app.downloadPdf(inv) }, icon('download')),
@@ -58,7 +58,7 @@ export function initArchivePanel(app) {
   function storno(id) {
     const source = state.store.invoices.find((i) => i.id === id);
     const draft = createStorno(source, { id: newId(), number: nextNumber(), date: todayIso() });
-    add(draft, `Stornorechnung ${draft.number} zu ${source.number} angelegt – bitte prüfen und abschließen`);
+    add(draft, `Stornorechnung ${draft.number} zu ${source.number} angelegt. Bitte prüfen und abschließen`);
   }
   function remove(id) {
     if (isLocked(state.store.invoices.find((i) => i.id === id))) return; // Aufbewahrungspflicht

@@ -4,7 +4,7 @@ Erzeugt die Schriften für den PDF-Export: fonts/inter-pdf-400.ttf, -600.ttf, -7
 Quelle: Inter 4.1 (npm-Paket inter-ui@4.1.1, Datei variable/InterVariable.woff2, SIL Open Font License).
 Aus der variablen Schrift werden feste Schnitte (Regular, SemiBold, Bold) erzeugt und auf die Zeichen
 reduziert, die auf Rechnungen vorkommen: Latin-1, Latin Extended-A (ş, ğ, ı, ő, ł …), Anführungszeichen,
-Striche, € – rund 24 KB je Schnitt. Ohne Hinting und Layout-Tabellen, die der PDF-Schreiber nicht nutzt.
+Striche, €: rund 24 KB je Schnitt. Ohne Hinting und Layout-Tabellen, die der PDF-Schreiber nicht nutzt.
 
 Aufruf:  pip install fonttools brotli
          npm pack inter-ui@4.1.1 && tar xzf inter-ui-4.1.1.tgz

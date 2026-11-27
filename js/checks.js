@@ -26,7 +26,7 @@ export function looksLikeGibberish(value) {
   const s = String(value ?? '').trim();
   const lower = s.toLowerCase();
   if (PLACEHOLDERS.has(lower) || PLACEHOLDERS.has(lettersOnly(s))) return true;
-  if (/(\p{L})\1{3,}/iu.test(s)) return true; // „aaaa“ – drei gleiche Buchstaben gibt es („Schifffahrt“), vier nicht
+  if (/(\p{L})\1{3,}/iu.test(s)) return true; // „aaaa“: drei gleiche Buchstaben gibt es („Schifffahrt“), vier nicht
   const letters = lettersOnly(s);
   if (/^(\p{L})\1$/u.test(letters)) return true; // „xx“
   if (letters.length >= 6 && /^(\p{L}{1,3})\1{2,}$/u.test(letters)) return true; // „jdjdjd“, „lalala“
@@ -46,24 +46,24 @@ export function nameError(value) {
   if (!/^[\p{L}\p{M}\d\s&.,'’´`"„“”()\-+/@!:·|]+$/u.test(s)) return 'Der Name enthält ungültige Zeichen.';
   return null;
 }
-/** Warnung bei verdächtigen Namen – blockiert nicht. */
-export const nameWarning = (value) => (looksLikeGibberish(value) ? 'Sieht nicht nach einem echten Namen aus – bitte prüfen.' : null);
+/** Warnung bei verdächtigen Namen: blockiert nicht. */
+export const nameWarning = (value) => (looksLikeGibberish(value) ? 'Sieht nicht nach einem echten Namen aus. Bitte prüfen.' : null);
 /** Fehler oder Warnung (für Tests und einfache Prüfungen). */
 export const checkName = (value) => nameError(value) ?? nameWarning(value);
 
 /** Straße mit Hausnummer („Hauptstraße 5“, „Am Markt 12a“, „Postfach 12 34“). */
 export function streetError(value) {
   const s = String(value ?? '').trim();
-  if (letterCount(s) < 3) return 'Bitte Straße und Hausnummer angeben – z. B. „Hauptstraße 5“.';
-  if (!/\d/.test(s)) return 'Die Hausnummer fehlt – z. B. „Hauptstraße 5“.';
+  if (letterCount(s) < 3) return 'Bitte Straße und Hausnummer angeben, z. B. „Hauptstraße 5“.';
+  if (!/\d/.test(s)) return 'Die Hausnummer fehlt, z. B. „Hauptstraße 5“.';
   if (s.length > 150) return 'Die Straße ist zu lang.';
   if (!/^[\p{L}\p{M}\d\s.,'’\-/()]+$/u.test(s)) return 'Die Straße enthält ungültige Zeichen.';
   return null;
 }
-export const streetWarning = (value) => (looksLikeGibberish(String(value ?? '').replace(/\d+\s*[a-z]?\b/giu, ' ')) ? 'Diese Straße sieht nicht echt aus – bitte prüfen.' : null);
+export const streetWarning = (value) => (looksLikeGibberish(String(value ?? '').replace(/\d+\s*[a-z]?\b/giu, ' ')) ? 'Diese Straße sieht nicht echt aus. Bitte prüfen.' : null);
 export const checkStreet = (value) => streetError(value) ?? streetWarning(value);
 
-/** Postleitzahl: in Deutschland genau fünf Ziffern, sonst 2–10 Zeichen. */
+/** Postleitzahl: in Deutschland genau fünf Ziffern, sonst 2-10 Zeichen. */
 export function checkZip(value, country = 'DE') {
   const s = String(value ?? '').trim();
   if ((country || 'DE') === 'DE') {
@@ -82,7 +82,7 @@ export function cityError(value) {
   if (!/^[\p{L}\p{M}\s.'’()\-/]+$/u.test(s)) return 'Der Ort enthält ungültige Zeichen.';
   return null;
 }
-export const cityWarning = (value) => (looksLikeGibberish(value) ? 'Diesen Ort gibt es so wohl nicht – bitte prüfen.' : null);
+export const cityWarning = (value) => (looksLikeGibberish(value) ? 'Diesen Ort gibt es so wohl nicht. Bitte prüfen.' : null);
 export const checkCity = (value) => cityError(value) ?? cityWarning(value);
 
 export const isValidEmail = (value) => /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[a-z]{2,}$/i.test(String(value ?? '').trim());
@@ -129,9 +129,9 @@ function deVatChecksum(digits) {
 export function vatIdError(value) {
   const s = cleanVatId(value);
   const format = VAT_FORMATS[s.slice(0, 2)] ?? (s.startsWith('CHE') ? VAT_FORMATS.CH : null);
-  if (!format) return s.startsWith('GR') ? 'Griechische USt-IdNr. beginnen mit „EL“, nicht „GR“.' : 'Unbekanntes Länderkürzel – die USt-IdNr. beginnt mit dem Länderkürzel, z. B. „DE“ oder „ATU“.';
+  if (!format) return s.startsWith('GR') ? 'Griechische USt-IdNr. beginnen mit „EL“, nicht „GR“.' : 'Unbekanntes Länderkürzel. Die USt-IdNr. beginnt mit dem Länderkürzel, z. B. „DE“ oder „ATU“.';
   if (!format.test(s)) return s.startsWith('DE') ? 'Die USt-IdNr. besteht aus „DE“ und 9 Ziffern.' : 'Die USt-IdNr. hat nicht das Format dieses Landes.';
-  if (s.startsWith('DE') && !deVatChecksum(s.slice(2))) return 'Die Prüfziffer der USt-IdNr. stimmt nicht – bitte Zahlendreher prüfen.';
+  if (s.startsWith('DE') && !deVatChecksum(s.slice(2))) return 'Die Prüfziffer der USt-IdNr. stimmt nicht. Bitte Zahlendreher prüfen.';
   return null;
 }
 export const isValidVatId = (value) => vatIdError(value) === null;
@@ -162,14 +162,14 @@ function mod97(text) {
 }
 
 /**
- * Leitweg-ID der öffentlichen Verwaltung: Grobadressierung (2–12 Ziffern) – optional Feinadressierung (bis 30 Zeichen)
- * – Prüfziffer (2 Ziffern, ISO 7064 MOD 97-10). Beispiel: 04011000-1234512345-06.
+ * Leitweg-ID der öffentlichen Verwaltung: Grobadressierung (2-12 Ziffern): optional Feinadressierung (bis 30 Zeichen)
+ *: Prüfziffer (2 Ziffern, ISO 7064 MOD 97-10). Beispiel: 04011000-1234512345-06.
  */
 export const LEITWEG_PATTERN = /^\d{2,12}(-[A-Z0-9]{1,30})?-\d{2}$/i;
 export function leitwegIdError(value) {
   const s = String(value ?? '').trim().toUpperCase();
   if (!LEITWEG_PATTERN.test(s)) return 'Die Leitweg-ID hat das Format „Grobadresse-Feinadresse-Prüfziffer“, z. B. 04011000-1234512345-06.';
-  if (mod97(s.replace(/-/g, '')) !== 1) return 'Die Prüfziffer der Leitweg-ID stimmt nicht – bitte mit dem Auftraggeber abgleichen.';
+  if (mod97(s.replace(/-/g, '')) !== 1) return 'Die Prüfziffer der Leitweg-ID stimmt nicht. Bitte mit dem Auftraggeber abgleichen.';
   return null;
 }
 /** Sieht die Käuferreferenz wie eine Leitweg-ID aus? Dann wird sie auch so geprüft. */

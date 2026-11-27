@@ -4,19 +4,19 @@
  */
 import {
   nextInvoiceNumber, DEFAULT_NUMBER_FORMAT, todayIso, isLocked, finalizeInvoice, settingsFor, invoiceTotals, serviceModeOf, taxKeyOf,
-} from './invoice.js?v=26';
-import { DEFAULT_COLOR, normalizeHex } from './color.js?v=26';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=26';
+} from './invoice.js?v=27';
+import { DEFAULT_COLOR, normalizeHex } from './color.js?v=27';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=27';
 
 export const STORAGE_KEY = 'rechnungen:v3';
 
-/** Der gesamte Speicherstand – als Objekt, damit andere Module ihn austauschen können (Rückgängig, Import). */
+/** Der gesamte Speicherstand: als Objekt, damit andere Module ihn austauschen können (Rückgängig, Import). */
 export const state = { store: null };
 
 export const newId = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 export const settings = () => state.store.settings;
 export const invoice = () => state.store.invoices.find((i) => i.id === state.store.currentId);
-/** Einstellungen für eine Rechnung – bei abgeschlossenen die eingefrorenen. */
+/** Einstellungen für eine Rechnung: bei abgeschlossenen die eingefrorenen. */
 export const invSettings = (inv = invoice()) => settingsFor(inv, settings());
 /** Kontext für die Prüfung: alle anderen Rechnungen (eindeutige Nummer, Reihenfolge) und das heutige Datum. */
 export const validationContext = () => ({ others: state.store.invoices, today: todayIso() });
@@ -25,7 +25,7 @@ export function totalsOf(inv = invoice()) {
   try { return invoiceTotals(inv, invSettings(inv)); } catch { return null; }
 }
 
-/** Gewähltes Rechnungsdesign – ältere Speicherstände ohne Design bekommen den Standard. */
+/** Gewähltes Rechnungsdesign: ältere Speicherstände ohne Design bekommen den Standard. */
 export function design(source = settings()) {
   const d = source.design ?? {};
   return { color: normalizeHex(d.color) ?? DEFAULT_COLOR, head: d.head === 'light' ? 'light' : 'filled' };
@@ -72,7 +72,7 @@ export function newInvoice(s = state.store) {
   };
 }
 
-/** Leere Einstellungen – beim ersten Start trägt man seine eigenen Daten ein. */
+/** Leere Einstellungen: beim ersten Start trägt man seine eigenen Daten ein. */
 export function emptySettings() {
   return {
     company: {

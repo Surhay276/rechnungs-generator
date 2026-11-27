@@ -1,4 +1,4 @@
-/** Datumsrechnung auf ISO-Daten (JJJJ-MM-TT) – zeitzonensicher in UTC. */
+/** Datumsrechnung auf ISO-Daten (JJJJ-MM-TT): zeitzonensicher in UTC. */
 
 /** Ist das ein echtes Kalenderdatum? („2026-02-30“ ist es nicht.) */
 export function isValidIsoDate(value) {

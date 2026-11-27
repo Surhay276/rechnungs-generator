@@ -1,4 +1,4 @@
-// Läuft vor dem Rendern (klassisches Skript im <head>, kein Modul) – als eigene Datei,
+// Läuft vor dem Rendern (klassisches Skript im <head>, kein Modul): als eigene Datei,
 // damit die Content-Security-Policy keine Inline-Skripte erlauben muss.
 
 // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (→ kein Aufblitzen).

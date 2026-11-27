@@ -20,7 +20,7 @@ async function render(mutate = () => {}) {
   return { view, pdf: Buffer.from(bytes).toString('latin1'), bytes };
 }
 
-/** Text aller Seiten über die ToUnicode-Tabellen zurückgewinnen – so wie ein PDF-Viewer beim Kopieren. */
+/** Text aller Seiten über die ToUnicode-Tabellen zurückgewinnen: so wie ein PDF-Viewer beim Kopieren. */
 function extractText(pdf) {
   const streams = [...pdf.matchAll(/<< ([^]*?) >>\nstream\n([^]*?)\nendstream/g)].map(([, dict, data]) => {
     const raw = Buffer.from(data, 'latin1');
@@ -30,7 +30,7 @@ function extractText(pdf) {
   for (const s of streams.filter((x) => x.includes('beginbfchar'))) {
     for (const [, gid, uni] of s.matchAll(/<([0-9a-f]{4})> <([0-9a-f]+)>/g)) map.set(gid, String.fromCharCode(...uni.match(/.{4}/g).map((h) => parseInt(h, 16))));
   }
-  // Glyphen-IDs sind je Schrift verschieden – für den Test reicht: irgendeine Schrift kennt das Zeichen
+  // Glyphen-IDs sind je Schrift verschieden: für den Test reicht: irgendeine Schrift kennt das Zeichen
   return streams.filter((s) => s.includes(' Tj ET')).map((s) => [...s.matchAll(/<([0-9a-f]+)> Tj/g)]
     .map(([, hex]) => hex.match(/.{4}/g).map((g) => map.get(g) ?? '?').join('')).join('\n')).join('\n');
 }
@@ -51,7 +51,7 @@ test('PDF: gültiger Aufbau mit eingebetteten Schriften und Metadaten', async ()
   assert.ok(bytes.length < 150_000, 'PDF bleibt klein');
 });
 
-test('PDF: enthält Rechnungsinhalt – auch Sonderzeichen wie ş, ı und €', async () => {
+test('PDF: enthält Rechnungsinhalt: auch Sonderzeichen wie ş, ı und €', async () => {
   const { pdf } = await render((inv) => { inv.customer.name = 'Şahin Yılmaz Bäckerei'; });
   const text = extractText(pdf);
   for (const s of ['Rechnung', 'RE-2026-0001', 'Şahin Yılmaz Bäckerei', 'Konzeption & Design OnePager', 'Rechnungsbetrag', '€', 'Jetzt mit dem']) {

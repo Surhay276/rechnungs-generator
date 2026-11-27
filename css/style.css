@@ -1,5 +1,5 @@
 /* ==========================================================================
-   Rechnungsgenerator – Design-Tokens angelehnt an Untitled UI (Teal),
+   Rechnungsgenerator: Design-Tokens angelehnt an Untitled UI (Teal),
    Aufbau angelehnt an Qonto (Schritte, Karten, Vorschau rechts). Hell = Standard.
    ========================================================================== */
 
@@ -16,7 +16,7 @@
   --text: #101828;
   --text-2: #344054;
   --text-3: #667085;
-  --primary: #107569; /* Teal 700 – weiße Schrift erreicht 5,3 : 1 (WCAG AA) */
+  --primary: #107569; /* Teal 700: weiße Schrift erreicht 5,3 : 1 (WCAG AA) */
   --primary-hover: #125D56;
   --primary-soft: #F0FDF9;
   --primary-soft-2: #CCFBEF;
@@ -214,7 +214,7 @@ select.input::-ms-expand { display: none; }
 .input-group { display: flex; }
 .input-group > .input { border-radius: 0; }
 .input-group > .input:first-child { border-top-left-radius: var(--radius-md); border-bottom-left-radius: var(--radius-md); }
-/* rechte Ecken nur am letzten Feld der Gruppe – dahinter kann noch ein Icon-Button stehen */
+/* rechte Ecken nur am letzten Feld der Gruppe: dahinter kann noch ein Icon-Button stehen */
 .input-group > .input:not(:has(+ .input)) { border-top-right-radius: var(--radius-md); border-bottom-right-radius: var(--radius-md); }
 .input-group > .input + .input { margin-left: -1px; }
 .input-group > .input:hover, .input-group > .input:focus { position: relative; z-index: 1; }
@@ -223,7 +223,7 @@ select.input::-ms-expand { display: none; }
 
 /* Schalter (Untitled-UI-Toggle) */
 .switch { position: relative; display: flex; gap: 12px; align-items: flex-start; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-2); }
-/* Das echte Kontrollkästchen liegt unsichtbar genau über dem Schalter. Wichtig: Bezug ist .switch (position: relative) –
+/* Das echte Kontrollkästchen liegt unsichtbar genau über dem Schalter. Wichtig: Bezug ist .switch (position: relative):
    sonst hängt es am Seitenfenster, und beim Antippen scrollt das ganze Fenster zu seiner „falschen“ Position ins Leere. */
 .switch input { position: absolute; top: 1px; left: 0; width: 36px; height: 20px; margin: 0; opacity: 0; pointer-events: none; }
 .switch-track { flex: none; position: relative; width: 36px; height: 20px; margin-top: 1px; border-radius: 99px; background: var(--surface-3); transition: background-color .2s; }
@@ -336,7 +336,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .actionbar { container: actionbar / inline-size; }
 .actionbar-nav { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .actionbar .btn { min-height: 44px; padding: 0 18px; font-size: 14px; white-space: nowrap; flex: none; }
-/* Wird die Spalte schmal, zeigen Nebenaktionen nur ihr Symbol – nichts ragt in die Vorschau */
+/* Wird die Spalte schmal, zeigen Nebenaktionen nur ihr Symbol: nichts ragt in die Vorschau */
 @container actionbar (max-width: 700px) {
   .actionbar .collapse-narrow { width: 44px; padding: 0; }
   .actionbar .collapse-narrow .btn-label { display: none; }
@@ -395,7 +395,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .zoom-btn:hover:not(:disabled), .zoom-level:hover { background: var(--surface-2); color: var(--text); }
 .zoom-btn:disabled { color: var(--border-strong); cursor: default; }
 
-/* Das Blatt – immer hell, egal welches App-Design */
+/* Das Blatt: immer hell, egal welches App-Design */
 .paper {
   --paper-zoom: 1;
   zoom: var(--paper-zoom);
@@ -421,7 +421,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .paper table { width: 100%; border-collapse: collapse; }
 .paper .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .inv-items th { background: var(--ink-fill); color: var(--ink-on); font-size: 8.5pt; font-weight: 600; text-align: left; padding: 2.5mm 3mm; }
-/* Zahlenspalten mit deutlichem Abstand zueinander – die Beschreibung bekommt den restlichen Platz */
+/* Zahlenspalten mit deutlichem Abstand zueinander: die Beschreibung bekommt den restlichen Platz */
 .inv-items .num { padding-left: 4.5mm; }
 .inv-items th.num { text-align: right; }
 .inv-items td { padding: 2.6mm 3mm; border-bottom: 1px solid #eaecf0; vertical-align: top; }
@@ -533,7 +533,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .hex-field .input { padding-left: 36px; text-transform: uppercase; }
 .hex-field .input.is-invalid { border-color: var(--error); }
 .hex-dot { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgb(16 24 40 / .15); pointer-events: none; }
-/* Mini-Vorschau – immer hell wie das echte Blatt */
+/* Mini-Vorschau: immer hell wie das echte Blatt */
 .design-sample {
   --ink: #1D2939; --ink-fill: #1D2939; --ink-on: #fff; --ink-soft: #E8EAEB;
   flex: none; width: 148px; display: flex; flex-direction: column; gap: 5px; padding: 12px;
@@ -596,7 +596,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .footer { text-align: center; color: var(--text-3); font-size: 13px; padding: 24px; }
 
 /* ==========================================================================
-   Tablet & Mobil: App-Layout – nur der Inhalt scrollt (Leiste unten wackelt nicht)
+   Tablet & Mobil: App-Layout: nur der Inhalt scrollt (Leiste unten wackelt nicht)
    ========================================================================== */
 @media (max-width: 1100px) {
   html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
@@ -714,7 +714,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
   .layout { display: block !important; padding: 0 !important; margin: 0 !important; max-width: none !important; }
   .layout .preview-wrap { display: block !important; position: static !important; height: auto !important; padding: 0 !important; }
   .paper-fit { display: block !important; height: auto !important; padding: 0 !important; background: none !important; border: 0 !important; overflow: visible !important; }
-  /* Ränder kommen von @page – so hat auch Seite 2 oben einen Rand; einseitig sitzt die Fußzeile unten */
+  /* Ränder kommen von @page: so hat auch Seite 2 oben einen Rand; einseitig sitzt die Fußzeile unten */
   .paper { zoom: 1 !important; box-shadow: none !important; border-radius: 0 !important; width: auto; height: auto; min-height: calc(297mm - 27mm - 1mm); padding: 0 !important; margin: 0 !important; }
   .inv-items thead { display: table-header-group; }
   .inv-items tr, .inv-sum, .inv-pay, .inv-note, .inv-foot, .inv-qr { break-inside: avoid; }
@@ -753,4 +753,36 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 @media (max-width: 720px) {
   .prepayment { grid-template-columns: 1fr 1fr; }
   .prepayment > .icon-btn { justify-self: end; }
+}
+
+/* ---------- Info-Knopf „i“: Details nur auf Wunsch ---------- */
+.settings-card-head { justify-content: flex-start; }
+.settings-card-head .settings-status, .settings-card-head #design-reset { margin-left: auto; }
+.info-btn {
+  flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; margin-left: 2px;
+  border: 1.5px solid var(--border-strong); border-radius: 50%; background: var(--surface); color: var(--text-3);
+  font: 600 12px/1 var(--font); font-style: italic; cursor: pointer; vertical-align: middle;
+}
+.info-btn:hover, .info-btn[aria-expanded="true"] { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
+.info-btn:focus-visible { outline: none; box-shadow: var(--ring); }
+/* Trefferfläche ≥ 44 px trotz kleinem Kreis */
+.info-btn { position: relative; }
+.info-btn::after { content: ""; position: absolute; inset: -11px; }
+.info-text { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-2); color: var(--text-2); font-size: 13px; line-height: 1.5; }
+.hint-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0; }
+.hint-row .link-btn { min-height: 24px; font-size: 13px; }
+.saved-customer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.saved-customer .field-hint { margin: 0; flex: 1 1 220px; }
+
+/* ---------- Kunden in den Einstellungen bearbeiten ---------- */
+.customer-list li.is-editing { flex-direction: column; align-items: stretch; padding: 14px; }
+.customer-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.customer-row > span { display: flex; flex-direction: column; min-width: 0; }
+.customer-row .row-actions { display: flex; gap: 4px; }
+.customer-edit { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+
+/* ---------- Aktionsleiste immer an derselben Stelle (unten im Fenster) ---------- */
+@media (min-width: 1101px) {
+  .editor { min-height: calc(100dvh - var(--header-h, 65px) - 24px); }
+  #invoice-form { flex: 1; }
 }

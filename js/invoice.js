@@ -1,5 +1,5 @@
 /**
- * Fachlogik des Rechnungsgenerators – ohne DOM, vollständig testbar.
+ * Fachlogik des Rechnungsgenerators: ohne DOM, vollständig testbar.
  * Diese Datei bündelt die Module, damit Oberfläche, Skripte und Tests eine Stelle zum Importieren haben.
  *
  *   money.js      Zahlen einlesen, centgenau runden, formatieren
@@ -13,20 +13,20 @@
  *   girocode.js   GiroCode (EPC-QR)
  *   lock.js       Festschreibung, Kopie, Stornorechnung
  */
-import { countryName } from './tax.js?v=26';
+import { countryName } from './tax.js?v=27';
 
-export * from './money.js?v=26';
-export * from './tax.js?v=26';
-export * from './calc.js?v=26';
-export * from './dates.js?v=26';
-export * from './numbering.js?v=26';
-export * from './checks.js?v=26';
-export * from './validate.js?v=26';
-export * from './einvoice.js?v=26';
-export * from './girocode.js?v=26';
-export * from './lock.js?v=26';
+export * from './money.js?v=27';
+export * from './tax.js?v=27';
+export * from './calc.js?v=27';
+export * from './dates.js?v=27';
+export * from './numbering.js?v=27';
+export * from './checks.js?v=27';
+export * from './validate.js?v=27';
+export * from './einvoice.js?v=27';
+export * from './girocode.js?v=27';
+export * from './lock.js?v=27';
 
-/** Einheiten mit UN/ECE-Codes (Rec. 20) – nötig für die E-Rechnung. */
+/** Einheiten mit UN/ECE-Codes (Rec. 20): nötig für die E-Rechnung. */
 export const UNITS = Object.freeze([
   { code: 'H87', label: 'Stk.' },
   { code: 'HUR', label: 'Std.' },

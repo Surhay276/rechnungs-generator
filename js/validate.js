@@ -9,12 +9,12 @@
 import {
   nameError, nameWarning, streetError, streetWarning, checkZip, cityError, cityWarning, isValidEmail, isValidPhone,
   isValidTaxNumber, vatIdError, vatIdCountry, isValidIBAN, isValidBIC, leitwegIdError, looksLikeLeitwegId, looksLikeGibberish,
-} from './checks.js?v=26';
-import { toCents, toQuantityUnits, toPriceUnits, toPercent, parseScaled, isEmptyNumber } from './money.js?v=26';
-import { discountCents, lineBase, invoiceTotals } from './calc.js?v=26';
-import { isValidIsoDate, dueDate, serviceModeOf, daysBetween, addDays, todayIso } from './dates.js?v=26';
-import { TAX_TYPES, taxTypeOf, taxKeyOf, isEU, CURRENCIES, LEGAL_FORMS, guessLegalForm, kindOf } from './tax.js?v=26';
-import { sequenceOf, sameNumber, numberPatternError } from './numbering.js?v=26';
+} from './checks.js?v=27';
+import { toCents, toQuantityUnits, toPriceUnits, toPercent, parseScaled, isEmptyNumber } from './money.js?v=27';
+import { discountCents, lineBase, invoiceTotals } from './calc.js?v=27';
+import { isValidIsoDate, dueDate, serviceModeOf, daysBetween, addDays, todayIso } from './dates.js?v=27';
+import { TAX_TYPES, taxTypeOf, taxKeyOf, isEU, CURRENCIES, LEGAL_FORMS, guessLegalForm, kindOf } from './tax.js?v=27';
+import { sequenceOf, sameNumber, numberPatternError } from './numbering.js?v=27';
 
 const filled = (value) => String(value ?? '').trim() !== '';
 export const isError = (issue) => issue.level !== 'warning';
@@ -46,7 +46,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
     required(`${prefix}.street`, a.street, `Bitte Straße und Hausnummer${whose} angeben.`, streetError, streetWarning);
     required(`${prefix}.zip`, a.zip, `Bitte die Postleitzahl${whose} angeben.`, (v) => checkZip(v, a.country));
     required(`${prefix}.city`, a.city, `Bitte den Ort${whose} angeben.`, cityError, cityWarning);
-    if (filled(a.email) && !isValidEmail(a.email)) error(`${prefix}.email`, 'Diese E-Mail-Adresse ist ungültig – z. B. „name@firma.de“.');
+    if (filled(a.email) && !isValidEmail(a.email)) error(`${prefix}.email`, 'Diese E-Mail-Adresse ist ungültig, z. B. „name@firma.de“.');
   };
 
   // ---------- Eigene Firma ----------
@@ -57,14 +57,14 @@ export function checkInvoice(inv, settings = {}, context = {}) {
   }
   if (filled(c.phone) && !isValidPhone(c.phone)) error('company.phone', 'Bitte eine gültige Telefonnummer angeben (mindestens 6 Ziffern).');
   if (!filled(c.taxId) && !filled(c.vatId)) error('company.taxId', 'Bitte Steuernummer oder USt-IdNr. angeben.');
-  if (filled(c.taxId) && !isValidTaxNumber(c.taxId)) error('company.taxId', 'Die Steuernummer hat 10, 11 oder 13 Ziffern – z. B. 12/345/67890.');
+  if (filled(c.taxId) && !isValidTaxNumber(c.taxId)) error('company.taxId', 'Die Steuernummer hat 10, 11 oder 13 Ziffern, z. B. 12/345/67890.');
   if (filled(c.vatId)) {
     const problem = vatIdError(c.vatId);
     if (problem) error('company.vatId', problem);
     else if (vatIdCountry(c.vatId) !== 'DE') warn('company.vatId', 'Eine deutsche USt-IdNr. beginnt mit „DE“.');
   }
-  if (filled(c.iban) && !isValidIBAN(c.iban)) error('company.iban', 'Diese IBAN ist ungültig – bitte prüfen.');
-  if (filled(c.bic) && !isValidBIC(c.bic)) error('company.bic', 'Die BIC hat 8 oder 11 Zeichen – z. B. COBADEFFXXX.');
+  if (filled(c.iban) && !isValidIBAN(c.iban)) error('company.iban', 'Diese IBAN ist ungültig. Bitte prüfen.');
+  if (filled(c.bic) && !isValidBIC(c.bic)) error('company.bic', 'Die BIC hat 8 oder 11 Zeichen, z. B. COBADEFFXXX.');
   checkLegalForm(c, error, warn);
 
   // ---------- Kunde ----------
@@ -75,7 +75,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
     if (problem) error('customer.vatId', problem);
     else if (vatIdCountry(k.vatId) !== country) warn('customer.vatId', 'Das Länderkürzel der USt-IdNr. passt nicht zum Land des Kunden.');
   }
-  if (k.isPublic && !filled(k.reference)) error('customer.reference', 'Öffentliche Auftraggeber verlangen eine Leitweg-ID – bitte beim Auftraggeber erfragen.');
+  if (k.isPublic && !filled(k.reference)) error('customer.reference', 'Öffentliche Auftraggeber verlangen eine Leitweg-ID. Bitte beim Auftraggeber erfragen.');
   if (filled(k.reference) && (k.isPublic || looksLikeLeitwegId(k.reference))) {
     const problem = leitwegIdError(k.reference);
     if (problem) error('customer.reference', problem);
@@ -85,7 +85,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
   const others = (context.others ?? []).filter((o) => o.id !== inv.id);
   if (!filled(inv.number)) error('number', 'Bitte eine Rechnungsnummer angeben.');
   else if (String(inv.number).length > 50) error('number', 'Die Rechnungsnummer ist zu lang (höchstens 50 Zeichen).');
-  else if (others.some((o) => sameNumber(o.number, inv.number))) error('number', 'Diese Rechnungsnummer ist schon vergeben – jede Nummer darf nur einmal vorkommen.');
+  else if (others.some((o) => sameNumber(o.number, inv.number))) error('number', 'Diese Rechnungsnummer ist schon vergeben. Jede Nummer darf nur einmal vorkommen.');
 
   if (!filled(inv.date)) error('date', 'Bitte das Rechnungsdatum angeben.');
   else if (!isValidIsoDate(inv.date) || inv.date < '2000-01-01') error('date', 'Bitte ein gültiges Rechnungsdatum angeben.');
@@ -103,7 +103,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
     else if (isValidIsoDate(inv.date) && inv.dueDate < inv.date) error('dueDate', 'Das Fälligkeitsdatum liegt vor dem Rechnungsdatum.');
   }
 
-  // Leistungsdatum (§ 14 Abs. 4 Nr. 6 UStG) – ausdrücklich gewählt, nicht stillschweigend angenommen
+  // Leistungsdatum (§ 14 Abs. 4 Nr. 6 UStG): ausdrücklich gewählt, nicht stillschweigend angenommen
   const mode = serviceModeOf(inv);
   if (mode !== 'same') {
     if (!isValidIsoDate(inv.serviceFrom)) error('serviceFrom', mode === 'date' ? 'Bitte das Leistungsdatum angeben.' : 'Bitte den Beginn des Leistungszeitraums angeben.');
@@ -147,7 +147,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
     const label = `Leistung ${i + 1}`;
     const f = (key) => `items.${i}.${key}`;
     if (!filled(item.description)) error(f('description'), `${label}: Titel fehlt.`);
-    else if (String(item.description).trim().length < 2 || !/\p{L}/u.test(item.description)) error(f('description'), `${label}: Bitte die Leistung verständlich benennen – z. B. „Webdesign Startseite“.`);
+    else if (String(item.description).trim().length < 2 || !/\p{L}/u.test(item.description)) error(f('description'), `${label}: Bitte die Leistung verständlich benennen, z. B. „Webdesign Startseite“.`);
     else if (String(item.description).length > 500) error(f('description'), `${label}: Der Titel ist zu lang (höchstens 500 Zeichen).`);
     else if (looksLikeGibberish(item.description)) warn(f('description'), `${label}: Ist die Leistung verständlich benannt? (§ 14 Abs. 4 Nr. 5 UStG)`);
     try {
@@ -173,7 +173,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
   if (inv.skonto?.enabled && kind.key !== 'storno') {
     let percent = null;
     try { percent = toPercent(inv.skonto.percent); } catch { /* unten */ }
-    if (!percent || percent >= 100) error('skonto.percent', 'Skonto: bitte einen Prozentwert zwischen 0 und 100 angeben – z. B. 2.');
+    if (!percent || percent >= 100) error('skonto.percent', 'Skonto: bitte einen Prozentwert zwischen 0 und 100 angeben, z. B. 2.');
     const days = Number(inv.skonto.days);
     if (!Number.isInteger(days) || days < 1 || days > 365) error('skonto.days', 'Skonto: bitte eine Frist von 1 bis 365 Tagen angeben.');
     else if (isValidIsoDate(inv.date)) {
@@ -187,7 +187,7 @@ export function checkInvoice(inv, settings = {}, context = {}) {
     try {
       const t = invoiceTotals(inv, settings);
       if (kind.key === 'final' && t.payable < 0) error('prepayments', 'Die Abschläge sind höher als der Rechnungsbetrag.');
-      else if (kind.key !== 'storno' && t.gross < 0) warn('items', 'Der Rechnungsbetrag ist negativ – für Gutschriften und Korrekturen bitte die Dokumentart „Stornorechnung“ wählen.');
+      else if (kind.key !== 'storno' && t.gross < 0) warn('items', 'Der Rechnungsbetrag ist negativ. Für Gutschriften und Korrekturen bitte die Dokumentart „Stornorechnung“ wählen.');
     } catch (e) {
       error('items', e.message);
     }
@@ -200,15 +200,15 @@ function checkLegalForm(c, error, warn) {
   const guessed = guessLegalForm(c.name);
   const form = LEGAL_FORMS[c.legalForm];
   if (!form) {
-    if (guessed) error('company.legalForm', `Der Firmenname enthält die Rechtsform „${LEGAL_FORMS[guessed].label}“ – bitte Rechtsform und Registerangaben ergänzen.`);
+    if (guessed) error('company.legalForm', `Der Firmenname enthält die Rechtsform „${LEGAL_FORMS[guessed].label}“. Bitte Rechtsform und Registerangaben ergänzen.`);
     return;
   }
   if (guessed && guessed !== c.legalForm && !['sonstige'].includes(c.legalForm)) {
-    warn('company.legalForm', `Der Firmenname deutet auf „${LEGAL_FORMS[guessed].label}“ hin – bitte die Rechtsform prüfen.`);
+    warn('company.legalForm', `Der Firmenname deutet auf „${LEGAL_FORMS[guessed].label}“ hin. Bitte die Rechtsform prüfen.`);
   }
   if (form.register) {
-    if (!filled(c.registerCourt)) error('company.registerCourt', 'Bitte das Registergericht angeben – z. B. „Amtsgericht Charlottenburg“.');
-    if (!filled(c.registerNumber)) error('company.registerNumber', 'Bitte die Registernummer angeben – z. B. „HRB 123456 B“.');
+    if (!filled(c.registerCourt)) error('company.registerCourt', 'Bitte das Registergericht angeben, z. B. „Amtsgericht Charlottenburg“.');
+    if (!filled(c.registerNumber)) error('company.registerNumber', 'Bitte die Registernummer angeben, z. B. „HRB 123456 B“.');
     else if (!/^(HRA|HRB|VR|GnR|PR)\s?\d+/i.test(String(c.registerNumber).trim())) warn('company.registerNumber', 'Registernummern beginnen meist mit HRA, HRB, VR, GnR oder PR.');
   }
   if (form.officers && !filled(c.officers)) error('company.officers', `Bitte ${form.officersLabel === 'Vorstand' ? 'den Vorstand' : 'die Geschäftsführung'} angeben (Pflicht auf Geschäftsbriefen).`);
@@ -234,9 +234,9 @@ function checkTaxTypes(inv, c, k, error, warn) {
     }
     if (key === 'K' && filled(k.vatId) && vatIdCountry(k.vatId) === 'DE') error('customer.vatId', 'Bei innergemeinschaftlichen Lieferungen braucht der Kunde eine ausländische USt-IdNr.');
   }
-  if (types.has('E') && !filled(inv.exemptionReason)) error('exemptionReason', 'Bitte den Grund der Steuerbefreiung angeben – z. B. „Steuerfreie Heilbehandlung nach § 4 Nr. 14 UStG“.');
+  if (types.has('E') && !filled(inv.exemptionReason)) error('exemptionReason', 'Bitte den Grund der Steuerbefreiung angeben, z. B. „Steuerfreie Heilbehandlung nach § 4 Nr. 14 UStG“.');
   if (types.has('E') && types.has('M')) error(field('M'), 'Steuerfreie Leistungen (§ 4) und Differenzbesteuerung (§ 25a) bitte auf getrennten Rechnungen abrechnen.');
-  if (types.has('AE') && types.size > 1 && country !== 'DE') warn(field('AE'), 'Reverse-Charge und andere Steuerarten auf einer Rechnung – bitte prüfen, ob das so gewollt ist.');
+  if (types.has('AE') && types.size > 1 && country !== 'DE') warn(field('AE'), 'Reverse-Charge und andere Steuerarten auf einer Rechnung. Bitte prüfen, ob das so gewollt ist.');
 }
 
 /** Nummernfolge: eine höhere Nummer mit früherem Datum (oder umgekehrt) deutet auf eine Lücke oder einen Fehler hin. */
@@ -249,7 +249,7 @@ function checkSequence(inv, others, numberFormat, warn) {
     const seq = sequenceOf(o.number, { pattern, date: inv.date });
     return seq !== null && ((seq < own && o.date > inv.date) || (seq > own && o.date < inv.date));
   });
-  if (conflict) warn('date', `Die Reihenfolge passt nicht zu ${conflict.number} vom ${conflict.date.split('-').reverse().join('.')} – Nummern sollten mit dem Datum aufsteigen.`);
+  if (conflict) warn('date', `Die Reihenfolge passt nicht zu ${conflict.number} vom ${conflict.date.split('-').reverse().join('.')} . Nummern sollten mit dem Datum aufsteigen.`);
 }
 
 /** Nur die Fehler, die den Export blockieren. */

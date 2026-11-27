@@ -13,7 +13,7 @@ test('Positionsbeträge: Menge × Einzelpreis, centgenau', () => {
   assert.equal(lineBase({ quantity: '1', unitPrice: '-30,01' }), -3001);
 });
 
-test('Rabatte: Prozent, fester Betrag, nie mehr als die Basis – Vorzeichen folgt der Basis', () => {
+test('Rabatte: Prozent, fester Betrag, nie mehr als die Basis: Vorzeichen folgt der Basis', () => {
   assert.equal(discountCents(10000, { type: 'percent', value: '10' }), 1000);
   assert.equal(discountCents(10000, { type: 'amount', value: '25,50' }), 2550);
   assert.equal(discountCents(10000, { type: 'amount', value: '500' }), 10000);
@@ -24,7 +24,7 @@ test('Rabatte: Prozent, fester Betrag, nie mehr als die Basis – Vorzeichen fol
   assert.equal(lineNet({ quantity: 2, unitPrice: '50', discount: { type: 'percent', value: '10' } }), 9000);
 });
 
-test('allocate verteilt centgenau nach größten Resten – auch mit negativen Anteilen', () => {
+test('allocate verteilt centgenau nach größten Resten: auch mit negativen Anteilen', () => {
   assert.deepEqual(allocate(100, [1, 1, 1]), [34, 33, 33]);
   assert.deepEqual(allocate(0, [5, 5]), [0, 0]);
   assert.equal(allocate(999, [700, 299]).reduce((a, b) => a + b), 999);
