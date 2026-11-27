@@ -307,6 +307,9 @@ export function toXRechnung(inv, settings) {
     c.taxId ? `<cac:PartyTaxScheme><cbc:CompanyID>${esc(c.taxId)}</cbc:CompanyID><cac:TaxScheme><cbc:ID>FC</cbc:ID></cac:TaxScheme></cac:PartyTaxScheme>` : '',
   ].join('');
 
+  // BR-CO-26: Ohne USt-IdNr. braucht der Käufer eine andere Verkäuferkennung (BT-29) – dafür dient die Steuernummer.
+  const sellerId = !c.vatId && c.taxId ? `<cac:PartyIdentification><cbc:ID>${esc(c.taxId)}</cbc:ID></cac:PartyIdentification>` : '';
+
   const docAllowances = totals.breakdown.filter((b) => b.discount > 0).map((b) =>
     `<cac:AllowanceCharge><cbc:ChargeIndicator>false</cbc:ChargeIndicator><cbc:AllowanceChargeReason>Rabatt</cbc:AllowanceChargeReason>`
     + `<cbc:Amount ${amt(b.discount)}</cbc:Amount>${taxCategory(b.rate, ku)}</cac:AllowanceCharge>`).join('');
@@ -347,6 +350,7 @@ ${ku ? `<cbc:Note>${esc(KLEINUNTERNEHMER_HINWEIS)}</cbc:Note>` : ''}
 ${period}
 <cac:AccountingSupplierParty><cac:Party>
 <cbc:EndpointID schemeID="EM">${esc(c.email)}</cbc:EndpointID>
+${sellerId}
 ${postalAddress(c)}
 ${sellerTax}
 <cac:PartyLegalEntity><cbc:RegistrationName>${esc(c.name)}</cbc:RegistrationName></cac:PartyLegalEntity>

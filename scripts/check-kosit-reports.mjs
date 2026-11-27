@@ -23,12 +23,21 @@ for (const file of files.sort()) {
   const xml = readFileSync(join(dir, file), 'utf8');
   const accepted = /<rep:accept\b/.test(xml);
   // Alle gemeldeten Regelverstöße (Fehler und Warnungen) mit Regel-ID ausgeben
-  const findings = [...xml.matchAll(/<svrl:failed-assert\b([^>]*)>[\s\S]*?<svrl:text>([\s\S]*?)<\/svrl:text>/g)]
-    .map(([, attrs, text]) => {
-      const id = /\bid="([^"]+)"/.exec(attrs)?.[1] ?? '?';
-      const flag = /\bflag="([^"]+)"/.exec(attrs)?.[1] ?? 'fatal';
-      return `   ${flag === 'warning' ? '⚠' : '✗'} ${id}: ${text.replace(/\s+/g, ' ').trim()}`;
-    });
+  const decode = (t) => t.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+  const findings = [
+    // KoSIT-Bericht: <rep:message level="error" code="BR-…">Text</rep:message>
+    ...[...xml.matchAll(/<rep:message\b([^>]*)>([\s\S]*?)<\/rep:message>/g)].map(([, attrs, text]) => ({
+      id: /\bcode="([^"]+)"/.exec(attrs)?.[1] ?? '?',
+      level: /\blevel="([^"]+)"/.exec(attrs)?.[1] ?? 'error',
+      text,
+    })),
+    // Schematron-Rohausgabe (falls enthalten)
+    ...[...xml.matchAll(/<svrl:failed-assert\b([^>]*)>[\s\S]*?<svrl:text>([\s\S]*?)<\/svrl:text>/g)].map(([, attrs, text]) => ({
+      id: /\bid="([^"]+)"/.exec(attrs)?.[1] ?? '?',
+      level: /\bflag="([^"]+)"/.exec(attrs)?.[1] ?? 'error',
+      text,
+    })),
+  ].map(({ id, level, text }) => `   ${/warn|info/i.test(level) ? '⚠' : '✗'} ${id}: ${decode(text).replace(/\s+/g, ' ').trim()}`);
   console.log(`${accepted ? '✓ angenommen' : '✗ ABGELEHNT '}  ${file.replace('-report.xml', '.xml')}`);
   for (const line of findings) console.log(line);
   if (!accepted) failed = true;
