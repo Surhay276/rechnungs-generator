@@ -2,11 +2,11 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=14';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=14';
+} from './invoice.js?v=15';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=15';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=14';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=15';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -196,6 +196,7 @@ function fillForm() {
   renderPaymentChips();
   renderItems();
   $('#skonto-fields').hidden = !inv.skonto?.enabled;
+  renderBankSummary(); // setzt den GiroCode-Schalter passend zur IBAN
 }
 
 form.addEventListener('input', (e) => {
@@ -392,14 +393,19 @@ function renderBankSummary() {
   summary.replaceChildren(
     el('div', {},
       el('span', { className: 'field-label', textContent: 'Bankverbindung' }),
-      el('p', { className: 'mono', textContent: status }),
+      el('p', { className: c.iban ? 'mono' : 'bank-missing', textContent: status }),
       c.bank && el('p', { className: 'field-hint', textContent: c.bank })),
     el('button', { type: 'button', className: 'btn btn-secondary btn-sm', textContent: ok ? 'Ändern' : c.iban ? 'Korrigieren' : 'Eintragen', onclick: () => openSettings('company.iban') }),
   );
+  // Ohne gültige IBAN: Schalter aus und gesperrt, nur ein kurzer Hinweis. Die Wahl selbst bleibt gespeichert.
   const giro = $('[data-field="giroCode"]');
   giro.disabled = !ok;
+  giro.checked = ok && Boolean(invoice().giroCode);
   giro.closest('.switch').classList.toggle('is-disabled', !ok);
-  $('#giro-warning').hidden = ok;
+  $('#giro-desc').hidden = !ok;
+  const warning = $('#giro-warning');
+  warning.hidden = ok;
+  warning.textContent = c.iban ? 'Nicht verfügbar – die IBAN ist ungültig.' : 'Nicht verfügbar – keine IBAN eingetragen.';
 }
 
 $('#save-defaults').addEventListener('click', () => {

@@ -26,7 +26,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=15">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -99,7 +99,6 @@
               <span class="onboarding-icon" aria-hidden="true"><svg class="icon"><use href="#i-gear"/></svg></span>
               <div class="onboarding-text">
                 <strong>Trag zuerst deine Firmendaten ein</strong>
-                <p>Sie erscheinen auf jeder Rechnung und lassen sich später jederzeit in den Einstellungen ändern.</p>
               </div>
               <button type="button" class="btn btn-primary" id="onboarding-btn">Firmendaten eintragen</button>
             </div>
@@ -185,7 +184,7 @@
               <label class="switch">
                 <input type="checkbox" role="switch" data-field="giroCode">
                 <span class="switch-track" aria-hidden="true"></span>
-                <span><strong>GiroCode auf der Rechnung</strong><small>QR-Code, den dein Kunde mit der Banking-App scannt – Betrag, IBAN und Verwendungszweck sind dann ausgefüllt.</small><small class="giro-warning" id="giro-warning" hidden>Erscheint erst mit gültiger IBAN.</small></span>
+                <span><strong>GiroCode auf der Rechnung</strong><small id="giro-desc">QR-Code, den dein Kunde mit der Banking-App scannt – Betrag, IBAN und Verwendungszweck sind dann ausgefüllt.</small><small class="giro-warning" id="giro-warning" hidden></small></span>
               </label>
               <label class="switch">
                 <input type="checkbox" role="switch" data-field="skonto.enabled">
@@ -423,6 +422,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=14"></script>
+  <script type="module" src="js/app.js?v=15"></script>
 </body>
 </html>
