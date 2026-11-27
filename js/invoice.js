@@ -199,9 +199,97 @@ export const formatAddress = (a = {}) =>
   [a.street, [a.zip, a.city].filter(Boolean).join(' '), a.country && a.country !== 'DE' ? a.country : '']
     .filter((x) => String(x ?? '').trim()).join('\n');
 
+// ---------- Plausibilität ----------
+// Pflichtfelder allein reichen nicht: „a“ oder „asdf“ wären sonst ein gültiger Name. Diese Regeln
+// erkennen typische Fehleingaben, ohne echte Namen auszusperren (z. B. „BMW AG“, „Schifffahrt“, „Yılmaz“).
+
+const PLACEHOLDERS = new Set(['test', 'tester', 'testtest', 'asdf', 'abc', 'abcd', 'xyz', 'xxx', 'foo', 'bar', 'foobar', 'name', 'firma',
+  'kunde', 'straße', 'strasse', 'ort', 'stadt', 'quatsch', 'bla', 'blabla', 'keine', 'keiner', 'unbekannt', 'na', 'n/a', 'none', 'null',
+  'undefined', 'dummy', 'lorem', 'ipsum', 'lorem ipsum', 'hallo', 'hello']);
+// Tastaturreihen (deutsch und englisch) und das Alphabet: „asdfg“ oder „qwertz“ sind keine Namen
+const KEY_ROWS = ['qwertzuiopü', 'asdfghjklöä', 'yxcvbnm', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm', 'abcdefghijklmnopqrstuvwxyz'];
+const VOWELS = /[aeiouyäöüıøæœ]/i;
+
+const letterCount = (s) => (String(s).match(/\p{L}/gu) ?? []).length;
+const lettersOnly = (s) => String(s).toLowerCase().replace(/[^\p{L}]/gu, '');
+
+/** Sieht ein Text nach Tastatur-Gehämmer, Platzhalter oder Wiederholung aus? */
+export function looksLikeGibberish(value) {
+  const s = String(value ?? '').trim();
+  const lower = s.toLowerCase();
+  if (PLACEHOLDERS.has(lower) || PLACEHOLDERS.has(lettersOnly(s))) return true;
+  if (/(\p{L})\1{3,}/iu.test(s)) return true; // „aaaa“ – drei gleiche Buchstaben gibt es („Schifffahrt“), vier nicht
+  const letters = lettersOnly(s);
+  if (letters.length >= 2 && /^(\p{L}{1,3})\1+$/u.test(letters)) return true; // „xx“, „jdjdjd“, „lalala“
+  if (letters.length >= 3 && KEY_ROWS.some((row) => row.includes(letters) || [...row].reverse().join('').includes(letters))) return true;
+  // Längere Wörter ohne einen einzigen Vokal („hjkgfd“); kurze Abkürzungen wie „BMW“ oder „KPMG“ bleiben erlaubt
+  return s.split(/[\s\-/.,&]+/).some((word) => {
+    const w = lettersOnly(word.normalize('NFD').replace(/\p{M}/gu, ''));
+    return w.length >= 5 && !VOWELS.test(w);
+  });
+}
+
+/** Name einer Person oder Firma. Liefert eine Fehlermeldung oder null. */
+export function checkName(value) {
+  const s = String(value ?? '').trim();
+  if (letterCount(s) < 2) return 'Bitte den vollständigen Namen angeben (mindestens 2 Buchstaben).';
+  if (!/^[\p{L}\p{M}\d\s&.,'’´`"„“”()\-+/@!:·|]+$/u.test(s)) return 'Der Name enthält ungültige Zeichen.';
+  if (looksLikeGibberish(s)) return 'Das sieht nicht nach einem echten Namen aus – bitte prüfen.';
+  return null;
+}
+
+/** Straße mit Hausnummer („Hauptstraße 5“, „Am Markt 12a“, „Postfach 12 34“). */
+export function checkStreet(value) {
+  const s = String(value ?? '').trim();
+  if (letterCount(s) < 3) return 'Bitte Straße und Hausnummer angeben – z. B. „Hauptstraße 5“.';
+  if (!/\d/.test(s)) return 'Die Hausnummer fehlt – z. B. „Hauptstraße 5“.';
+  if (!/^[\p{L}\p{M}\d\s.,'’\-/()]+$/u.test(s)) return 'Die Straße enthält ungültige Zeichen.';
+  if (looksLikeGibberish(s.replace(/\d+\s*[a-z]?\b/giu, ' '))) return 'Diese Straße sieht nicht echt aus – bitte prüfen.';
+  return null;
+}
+
+/** Postleitzahl: in Deutschland genau fünf Ziffern. */
+export function checkZip(value, country = 'DE') {
+  const s = String(value ?? '').trim();
+  if ((country || 'DE') === 'DE') {
+    if (!/^\d{5}$/.test(s)) return 'Die Postleitzahl besteht aus 5 Ziffern.';
+    if (Number(s) < 1001) return 'Diese Postleitzahl gibt es nicht.';
+    return null;
+  }
+  return /^[A-Z0-9][A-Z0-9 -]{1,9}$/i.test(s) ? null : 'Bitte eine gültige Postleitzahl angeben.';
+}
+
+/** Ort ohne Ziffern („Frankfurt (Oder)“, „St. Ingbert“). */
+export function checkCity(value) {
+  const s = String(value ?? '').trim();
+  if (letterCount(s) < 2) return 'Bitte den Ort angeben.';
+  if (/\d/.test(s)) return 'Der Ort darf keine Ziffern enthalten.';
+  if (!/^[\p{L}\p{M}\s.'’()\-/]+$/u.test(s)) return 'Der Ort enthält ungültige Zeichen.';
+  if (looksLikeGibberish(s)) return 'Diesen Ort gibt es so wohl nicht – bitte prüfen.';
+  return null;
+}
+
+export const isValidEmail = (value) => /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)*\.[a-z]{2,}$/i.test(String(value ?? '').trim());
+export const isValidPhone = (value) => {
+  const s = String(value ?? '').trim();
+  return /^\+?[\d\s()/\-–.]+$/.test(s) && (s.match(/\d/g) ?? []).length >= 6;
+};
+/** Steuernummer: 10–13 Ziffern, Schrägstriche und Leerzeichen erlaubt (z. B. 12/345/67890). */
+export const isValidTaxNumber = (value) => {
+  const s = String(value ?? '').trim();
+  const digits = (s.match(/\d/g) ?? []).length;
+  return /^[\d\s/]+$/.test(s) && digits >= 10 && digits <= 13;
+};
+/** USt-IdNr.: Länderkürzel + Ziffern/Buchstaben, in Deutschland DE + 9 Ziffern. */
+export const isValidVatId = (value) => {
+  const s = String(value ?? '').replace(/\s/g, '').toUpperCase();
+  return s.startsWith('DE') ? /^DE\d{9}$/.test(s) : /^[A-Z]{2}[A-Z0-9]{2,12}$/.test(s);
+};
+export const isValidBIC = (value) => /^[A-Z]{4}[A-Z]{2}[A-Z0-9]{2}([A-Z0-9]{3})?$/.test(String(value ?? '').replace(/\s/g, '').toUpperCase());
+
 // ---------- Pflichtangaben ----------
 /**
- * Prüft eine Rechnung auf Pflichtangaben (vereinfacht nach § 14 Abs. 4 UStG).
+ * Prüft eine Rechnung auf Pflichtangaben (vereinfacht nach § 14 Abs. 4 UStG) und auf plausible Eingaben.
  * Liefert je Fehler das betroffene Feld, damit die Oberfläche genau dieses Feld markieren kann.
  * Felder unter `company.` liegen in den Einstellungen, alle anderen in der Rechnung.
  */
@@ -209,21 +297,36 @@ export function validateInvoiceFields(inv, settings = {}) {
   const errors = [];
   const c = settings.company ?? {};
   const k = inv.customer ?? {};
-  const require = (field, value, message) => { if (!String(value ?? '').trim()) errors.push({ field, message }); };
+  const filled = (value) => String(value ?? '').trim() !== '';
+  const require = (field, value, message) => { if (!filled(value)) errors.push({ field, message }); };
+  // Pflichtfeld + Plausibilität: leer → „bitte angeben“, sonst die Meldung der Prüfung
+  const check = (field, value, missing, test) => {
+    if (!filled(value)) { errors.push({ field, message: missing }); return; }
+    const problem = test(value);
+    if (problem) errors.push({ field, message: problem });
+  };
+  // Optionales Feld: nur prüfen, wenn etwas drinsteht
+  const optional = (field, value, ok, message) => { if (filled(value) && !ok(value)) errors.push({ field, message }); };
+  const address = (prefix, a, whose) => {
+    check(`${prefix}.name`, a.name, `Bitte Name oder Firma${whose} angeben.`, checkName);
+    check(`${prefix}.street`, a.street, `Bitte Straße und Hausnummer${whose} angeben.`, checkStreet);
+    check(`${prefix}.zip`, a.zip, `Bitte die Postleitzahl${whose} angeben.`, (v) => checkZip(v, a.country));
+    check(`${prefix}.city`, a.city, `Bitte den Ort${whose} angeben.`, checkCity);
+    optional(`${prefix}.email`, a.email, isValidEmail, 'Diese E-Mail-Adresse ist ungültig – z. B. „name@firma.de“.');
+  };
 
-  require('company.name', c.name, 'Bitte Name oder Firma angeben.');
-  require('company.street', c.street, 'Bitte Straße und Hausnummer angeben.');
-  require('company.zip', c.zip, 'Bitte die Postleitzahl angeben.');
-  require('company.city', c.city, 'Bitte den Ort angeben.');
-  if (!String(c.taxId ?? '').trim() && !String(c.vatId ?? '').trim()) {
+  address('company', c, '');
+  optional('company.contact', c.contact, (v) => !checkName(v), 'Bitte einen echten Namen angeben.');
+  optional('company.phone', c.phone, isValidPhone, 'Bitte eine gültige Telefonnummer angeben (mindestens 6 Ziffern).');
+  if (!filled(c.taxId) && !filled(c.vatId)) {
     errors.push({ field: 'company.taxId', message: 'Bitte Steuernummer oder USt-IdNr. angeben.' });
   }
+  optional('company.taxId', c.taxId, isValidTaxNumber, 'Die Steuernummer hat 10 bis 13 Ziffern – z. B. 12/345/67890.');
+  optional('company.vatId', c.vatId, isValidVatId, 'Die USt-IdNr. ist ungültig – in Deutschland „DE“ und 9 Ziffern.');
   if (c.iban && !isValidIBAN(c.iban)) errors.push({ field: 'company.iban', message: 'Diese IBAN ist ungültig – bitte prüfen.' });
+  optional('company.bic', c.bic, isValidBIC, 'Die BIC hat 8 oder 11 Zeichen – z. B. COBADEFFXXX.');
 
-  require('customer.name', k.name, 'Bitte Name oder Firma des Kunden angeben.');
-  require('customer.street', k.street, 'Bitte Straße und Hausnummer des Kunden angeben.');
-  require('customer.zip', k.zip, 'Bitte die Postleitzahl des Kunden angeben.');
-  require('customer.city', k.city, 'Bitte den Ort des Kunden angeben.');
+  address('customer', k, ' des Kunden');
   require('number', inv.number, 'Bitte eine Rechnungsnummer angeben.');
   require('date', inv.date, 'Bitte das Rechnungsdatum angeben.');
   if (inv.paymentDays === 'custom') require('dueDate', inv.dueDate, 'Bitte ein Fälligkeitsdatum wählen.');
@@ -233,7 +336,8 @@ export function validateInvoiceFields(inv, settings = {}) {
 
   if (!inv.items?.length) errors.push({ field: 'items', message: 'Bitte mindestens eine Leistung hinzufügen.' });
   inv.items?.forEach((item, i) => {
-    require(`items.${i}.description`, item.description, `Leistung ${i + 1}: Titel fehlt.`);
+    check(`items.${i}.description`, item.description, `Leistung ${i + 1}: Titel fehlt.`, (v) => (letterCount(v) < 2 || looksLikeGibberish(v)
+      ? `Leistung ${i + 1}: Bitte die Leistung verständlich benennen – z. B. „Webdesign Startseite“.` : null));
     try {
       if (toQuantity(item.quantity) === 0) errors.push({ field: `items.${i}.quantity`, message: `Leistung ${i + 1}: Menge muss größer 0 sein.` });
     } catch {
