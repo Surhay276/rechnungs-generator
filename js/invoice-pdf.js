@@ -3,7 +3,7 @@
  * (DIN-5008-nahe Ränder: oben 15 mm, rechts 20 mm, unten 12 mm, links 25 mm).
  * Mehrseitige Rechnungen: Tabellenkopf wiederholt sich, Fußzeile und Seitenzahl auf jeder Seite.
  */
-import { PdfDocument, MM, wrapText } from './pdf.js?v=24';
+import { PdfDocument, MM, wrapText } from './pdf.js?v=25';
 
 const INK = '#1d2939';
 const INK_2 = '#344054';
