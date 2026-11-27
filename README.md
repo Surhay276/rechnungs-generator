@@ -3,7 +3,7 @@
 [![CI](https://github.com/Surhay276/rechnungs-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/Surhay276/rechnungs-generator/actions/workflows/ci.yml)
 ![Vanilla JS](https://img.shields.io/badge/JavaScript-ES2022-f7df1e?logo=javascript&logoColor=black)
 ![Abhängigkeiten](https://img.shields.io/badge/dependencies-0-brightgreen)
-![XRechnung](https://img.shields.io/badge/E--Rechnung-XRechnung%203.0-0E9384)
+![XRechnung](https://img.shields.io/badge/E--Rechnung-XRechnung%203.0%20·%20KoSIT--gepr%C3%BCft-0E9384)
 
 Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorschau, GiroCode und E-Rechnung. Alle Daten bleiben lokal, es gibt keinen Server.
 
@@ -19,6 +19,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 ## Funktionen
 
 **Rechnung erstellen**
+- Startet leer: ein Hinweis führt zu den **eigenen Firmendaten** (Einstellungen); ein ausgefülltes Beispiel gibt es per Klick unter *Einstellungen → Beispieldaten ansehen*
 - Geführter Ablauf in **drei Schritten** (Rechnungsdetails → Leistungen → Zahlung & Texte), Aufbau angelehnt an Qonto
 - **Kundenliste**: Kunden speichern und mit einem Klick übernehmen
 - **Zahlungsfrist** per Auswahl (sofort, 14/30/45/60 Tage oder eigenes Datum), **Leistungszeitraum** von–bis
@@ -51,6 +52,8 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 
 **Warum strukturierte Adressen?** Für die E-Rechnung müssen Straße, PLZ und Ort einzeln vorliegen. Freitext-Adressen hätten zu ungültigen Dateien geführt.
 
+**Was hat die offizielle Prüfung gezeigt?** Der KoSIT-Validator hat anfangs drei von vier Beispiel-Rechnungen abgelehnt: Regel BR-CO-26 verlangt eine Verkäuferkennung – eine reine Steuernummer reicht dafür nicht. Ohne USt-IdNr. (z. B. als Kleinunternehmer) übermittelt die App die Steuernummer deshalb zusätzlich als Verkäuferkennung (BT-29). Seitdem werden alle Varianten angenommen.
+
 **Warum keine Daten auf einem Server?** Rechnungsdaten sind sensibel. Alles bleibt im `localStorage` des Browsers, Schriften und die QR-Bibliothek werden lokal ausgeliefert – es gehen keine Daten an Dritte.
 
 ## Technische Umsetzung
@@ -58,12 +61,12 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 | Bereich | Umsetzung |
 |---|---|
 | Architektur | Rechenlogik (`js/invoice.js`) ohne DOM, vollständig getestet; Oberfläche in `js/app.js` |
-| E-Rechnung | XML nach XRechnung 3.0 (UBL 2.1); Beispiel-Dateien gegen das offizielle UBL-Schema und die EN-16931-Rechenregeln geprüft |
+| E-Rechnung | XML nach XRechnung 3.0 (UBL 2.1); bei jedem Push prüft die CI vier Beispiel-Rechnungen mit dem **offiziellen KoSIT-Validator** (EN 16931 + deutsche XRechnung-Regeln) |
 | GiroCode | Inhalt nach EPC069-12 (Version 002, UTF-8); QR-Code über [qrcode-generator](js/vendor/README.md) (MIT), lokal eingebunden |
 | Sicherheit | Ausgabe nur über `textContent`, XML-Werte werden escaped; keine externen Anfragen |
 | Tests | 16 Unit-Tests mit `node:test` – Rundung, Rabattverteilung, Skonto, IBAN, GiroCode, Pflichtangaben, XML-Summen |
 | Barrierefreiheit | Beschriftete Felder, Fehler per `aria-invalid`/`aria-describedby`, sichtbarer Fokus, `prefers-reduced-motion` |
-| CI/CD | GitHub Actions testet jeden Push, Deployment über GitHub Pages |
+| CI/CD | GitHub Actions: Unit-Tests + E-Rechnungs-Prüfung (Validator per Prüfsumme gesichert), Deployment über GitHub Pages |
 
 ```
 rechnungs-generator/
@@ -74,6 +77,7 @@ rechnungs-generator/
 ├── js/vendor/                     # QR-Bibliothek (MIT)
 ├── scripts/samples.mjs            # Beispieldaten für Demo und Tests
 ├── scripts/xrechnung-samples.mjs  # erzeugt Beispiel-E-Rechnungen
+├── scripts/check-kosit-reports.mjs # wertet die Berichte des KoSIT-Validators aus
 └── tests/invoice.test.js          # Unit-Tests
 ```
 
@@ -87,7 +91,7 @@ npm test                                    # Unit-Tests (Node ≥ 20)
 node scripts/xrechnung-samples.mjs out/     # Beispiel-E-Rechnungen erzeugen
 ```
 
-> Portfolio-Projekt – ersetzt keine Buchhaltungssoftware oder steuerliche Beratung. Beispieldaten und die Muster-IBAN sind fiktiv. Vor dem produktiven Einsatz von E-Rechnungen sollten die Dateien mit dem offiziellen [KoSIT-Validator](https://github.com/itplr-kosit/validator) geprüft werden.
+> Portfolio-Projekt – ersetzt keine Buchhaltungssoftware oder steuerliche Beratung. Beispieldaten und die Muster-IBAN sind fiktiv. Die E-Rechnungen werden technisch mit dem offiziellen [KoSIT-Validator](https://github.com/itplr-kosit/validator) geprüft; ob eine Rechnung inhaltlich und steuerlich korrekt ist, hängt von den eingegebenen Daten ab.
 
 ---
 
