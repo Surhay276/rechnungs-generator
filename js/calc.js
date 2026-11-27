@@ -6,11 +6,11 @@
  * - Netto- oder Bruttopreise: Bei Bruttopreisen wird die Steuer aus dem Bruttobetrag herausgerechnet,
  *   der Rechnungsbetrag ist dann genau die Summe der eingegebenen Preise (99,99 € bleiben 99,99 €).
  */
-import { toCents, toPriceUnits, toQuantityUnits, toPercent, roundDiv, roundDivInt, isEmptyNumber, LIMITS, PRICE_SCALE } from './money.js?v=27';
+import { toCents, toPriceUnits, toQuantityUnits, toPercent, roundDiv, roundDivInt, isEmptyNumber, LIMITS, PRICE_SCALE } from './money.js?v=28';
 
 const TOO_HIGH = 'Der Rechnungsbetrag ist zu hoch (höchstens knapp 1 Mrd. €).';
-import { taxTypeOf } from './tax.js?v=27';
-import { addDays, isValidIsoDate } from './dates.js?v=27';
+import { taxTypeOf } from './tax.js?v=28';
+import { addDays, isValidIsoDate } from './dates.js?v=28';
 
 /** Rabattbetrag in Cent für eine Basis: als Prozent oder fester Betrag, nie mehr als die Basis. Vorzeichen folgt der Basis. */
 export function discountCents(baseCents, discount) {

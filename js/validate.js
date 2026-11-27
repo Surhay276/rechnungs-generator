@@ -9,12 +9,12 @@
 import {
   nameError, nameWarning, streetError, streetWarning, checkZip, cityError, cityWarning, isValidEmail, isValidPhone,
   isValidTaxNumber, vatIdError, vatIdCountry, isValidIBAN, isValidBIC, leitwegIdError, looksLikeLeitwegId, looksLikeGibberish,
-} from './checks.js?v=27';
-import { toCents, toQuantityUnits, toPriceUnits, toPercent, parseScaled, isEmptyNumber } from './money.js?v=27';
-import { discountCents, lineBase, invoiceTotals } from './calc.js?v=27';
-import { isValidIsoDate, dueDate, serviceModeOf, daysBetween, addDays, todayIso } from './dates.js?v=27';
-import { TAX_TYPES, taxTypeOf, taxKeyOf, isEU, CURRENCIES, LEGAL_FORMS, guessLegalForm, kindOf } from './tax.js?v=27';
-import { sequenceOf, sameNumber, numberPatternError } from './numbering.js?v=27';
+} from './checks.js?v=28';
+import { toCents, toQuantityUnits, toPriceUnits, toPercent, parseScaled, isEmptyNumber } from './money.js?v=28';
+import { discountCents, lineBase, invoiceTotals } from './calc.js?v=28';
+import { isValidIsoDate, dueDate, serviceModeOf, daysBetween, addDays, todayIso } from './dates.js?v=28';
+import { TAX_TYPES, taxTypeOf, taxKeyOf, isEU, CURRENCIES, LEGAL_FORMS, guessLegalForm, kindOf } from './tax.js?v=28';
+import { sequenceOf, sameNumber, numberPatternError } from './numbering.js?v=28';
 
 const filled = (value) => String(value ?? '').trim() !== '';
 export const isError = (issue) => issue.level !== 'warning';

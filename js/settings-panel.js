@@ -3,12 +3,12 @@
  */
 import {
   LEGAL_FORMS, guessLegalForm, numberPatternError, isLocked, countryOptions, nameError, streetError, checkZip, cityError, isValidEmail, vatIdError, leitwegIdError,
-} from './invoice.js?v=27';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, hsvToHex, hexToHsv } from './color.js?v=27';
-import { $, $$, el, icon, getPath, setPath, fillSelect, toast, confirmDialog } from './ui.js?v=27';
-import { state, settings, design, nextNumber, seed, demo, normalize, persist, save, newInvoice } from './store.js?v=27';
-import { applyDesign } from './preview.js?v=27';
-import { exportBackup, importBackup } from './export.js?v=27';
+} from './invoice.js?v=28';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, hsvToHex, hexToHsv } from './color.js?v=28';
+import { $, $$, el, icon, getPath, setPath, fillSelect, toast, confirmDialog } from './ui.js?v=28';
+import { state, settings, design, nextNumber, seed, demo, normalize, persist, save, newInvoice } from './store.js?v=28';
+import { applyDesign } from './preview.js?v=28';
+import { exportBackup, importBackup } from './export.js?v=28';
 
 /**
  * @param app  Rückrufe in die Hauptansicht: update, renderItems, renderBankSummary, renderFieldErrors, touch,

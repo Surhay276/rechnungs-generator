@@ -1,18 +1,18 @@
 /**
  * Dokumente erzeugen und ausliefern: PDF/A-3 mit eingebetteter E-Rechnung (ZUGFeRD), XRechnung, Sicherung.
  */
-import { toCII, toXRechnung } from './invoice.js?v=27';
-import { buildInvoiceView } from './view.js?v=27';
-import { el, toast, downloadBlob } from './ui.js?v=27';
-import { saveOriginal, getOriginal, allOriginals, verifyOriginal } from './originals.js?v=27';
-import { state, invSettings, totalsOf, design, validationContext, normalize } from './store.js?v=27';
+import { toCII, toXRechnung } from './invoice.js?v=28';
+import { buildInvoiceView } from './view.js?v=28';
+import { el, toast, downloadBlob } from './ui.js?v=28';
+import { saveOriginal, getOriginal, allOriginals, verifyOriginal } from './originals.js?v=28';
+import { state, invSettings, totalsOf, design, validationContext, normalize } from './store.js?v=28';
 
 
 // ---------- Ressourcen fürs PDF ----------
 let assets = null;
 /** Schriften (Inter, ca. 24 KB je Schnitt) und sRGB-Farbprofil einmalig laden. */
 function loadAssets() {
-  const get = (url) => fetch(`${url}?v=27`).then((r) => {
+  const get = (url) => fetch(`${url}?v=28`).then((r) => {
     if (!r.ok) throw new Error(`${url} nicht gefunden`);
     return r.arrayBuffer();
   });
@@ -64,7 +64,7 @@ export function viewOf(inv) {
  * @returns { pdf, pdfName, xml, xmlName, zugferd: boolean }
  */
 export async function buildDocuments(inv, s = invSettings(inv)) {
-  const { createInvoicePdf } = await import('./invoice-pdf.js?v=27');
+  const { createInvoicePdf } = await import('./invoice-pdf.js?v=28');
   const view = buildInvoiceView(inv, s, totalsOf(inv), design(s));
   const context = validationContext();
   let embedded = null;

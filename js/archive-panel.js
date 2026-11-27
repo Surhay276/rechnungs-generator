@@ -2,9 +2,9 @@
  * Seitenfenster „Rechnungen“: Liste aller Rechnungen mit Status, Download der Originale,
  * Duplizieren, Stornieren und Löschen von Entwürfen.
  */
-import { isLocked, copyAsDraft, createStorno, formatMoney, formatDate, kindOf, todayIso } from './invoice.js?v=27';
-import { $, el, icon, toast } from './ui.js?v=27';
-import { state, newInvoice, nextNumber, newId, totalsOf } from './store.js?v=27';
+import { isLocked, copyAsDraft, createStorno, formatMoney, formatDate, kindOf, todayIso } from './invoice.js?v=28';
+import { $, el, icon, toast } from './ui.js?v=28';
+import { state, newInvoice, nextNumber, newId, totalsOf } from './store.js?v=28';
 
 /** @param app  { openInvoice(id), resetEditor(), openDrawer(dialog), downloadPdf(inv), downloadXml(inv) } */
 export function initArchivePanel(app) {
