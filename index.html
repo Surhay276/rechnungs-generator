@@ -12,14 +12,21 @@
   <meta property="og:title" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
   <meta property="og:description" content="Rechnungen im Browser erstellen – mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
   <meta property="og:url" content="https://surhay276.github.io/rechnungs-generator/">
-  <meta property="og:image" content="https://surhay276.github.io/rechnungs-generator/docs/og.png">
+  <meta property="og:site_name" content="Hüseyin Surhay Yilmaz">
+  <meta property="og:image" content="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
+  <meta property="og:image:secure_url" content="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
+  <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Rechnungsgenerator · Hüseyin Surhay Yilmaz">
+  <meta name="twitter:description" content="Rechnungen im Browser erstellen – mit Live-Vorschau, Rabatten, Skonto, GiroCode und E-Rechnung (XRechnung).">
+  <meta name="twitter:image" content="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
+  <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=12">
+  <link rel="stylesheet" href="css/style.css?v=13">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -299,6 +306,44 @@
         <p class="field-hint">E-Mail und Telefon werden für die E-Rechnung benötigt.</p>
       </section>
 
+      <section class="settings-card" aria-labelledby="set-design">
+        <header class="settings-card-head">
+          <h3 id="set-design">Rechnungsdesign</h3>
+          <button type="button" class="btn btn-ghost btn-sm" id="design-reset" hidden>Standard</button>
+        </header>
+        <div class="design-row">
+          <div class="design-controls">
+            <div class="field">
+              <span class="field-label" id="color-label">Farbe</span>
+              <div class="swatches" id="swatches" role="radiogroup" aria-labelledby="color-label">
+                <label class="swatch swatch-custom" id="swatch-custom" title="Eigene Farbe wählen">
+                  <input type="color" id="custom-color" aria-label="Eigene Farbe wählen">
+                </label>
+              </div>
+              <label class="hex-field">
+                <span class="hex-dot" id="hex-dot" aria-hidden="true"></span>
+                <input class="input mono" id="hex-input" maxlength="7" spellcheck="false" autocapitalize="characters" aria-label="Farbcode (Hex)" placeholder="#1D2939">
+              </label>
+            </div>
+            <div class="field">
+              <span class="field-label" id="head-label">Tabellenkopf</span>
+              <div class="chips" id="head-chips" role="radiogroup" aria-labelledby="head-label">
+                <button type="button" class="chip" role="radio" data-head="filled">Gefüllt</button>
+                <button type="button" class="chip" role="radio" data-head="light">Hell</button>
+              </div>
+            </div>
+          </div>
+          <div class="design-sample" id="design-sample" aria-hidden="true">
+            <span class="ds-title">Rechnung</span>
+            <span class="ds-head"><span>Leistung</span><span>Betrag</span></span>
+            <span class="ds-row"><i></i><i></i></span>
+            <span class="ds-row"><i></i><i></i></span>
+            <span class="ds-total"><span>Gesamt</span><span>1.190,00 €</span></span>
+          </div>
+        </div>
+        <p class="field-hint">Gilt für Titel, Tabellenkopf und Gesamtbetrag. Die Schriftfarbe passt sich automatisch an, damit alles lesbar bleibt.</p>
+      </section>
+
       <section class="settings-card" aria-labelledby="set-tax">
         <header class="settings-card-head"><h3 id="set-tax">Steuer</h3></header>
         <div class="form-grid">
@@ -376,6 +421,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=12"></script>
+  <script type="module" src="js/app.js?v=13"></script>
 </body>
 </html>

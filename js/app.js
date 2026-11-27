@@ -2,10 +2,11 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=12';
+} from './invoice.js?v=13';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=13';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=12';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=13';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -78,6 +79,7 @@ function emptySettings() {
   return {
     company: { name: '', contact: '', street: '', zip: '', city: '', country: 'DE', taxId: '', vatId: '', email: '', phone: '', iban: '', bic: '', bank: '', logo: '' },
     kleinunternehmer: false,
+    design: { color: DEFAULT_COLOR, head: 'filled' },
     defaults: {
       intro: 'Sehr geehrte Damen und Herren,\nhiermit stelle ich Ihnen folgende Leistungen in Rechnung:',
       note: 'Vielen Dank für Ihren Auftrag.\n\nMit freundlichen Grüßen',
@@ -541,7 +543,23 @@ function giroCodeSvg(payload) {
   return svg;
 }
 
+/** Gewähltes Rechnungsdesign – ältere Speicherstände ohne Design bekommen den Standard. */
+function design() {
+  const d = settings().design ?? {};
+  return { color: normalizeHex(d.color) ?? DEFAULT_COLOR, head: d.head === 'light' ? 'light' : 'filled' };
+}
+
+/** Überträgt die abgeleiteten Farbtöne als CSS-Variablen auf ein Element (Blatt oder Muster). */
+function applyDesign(target) {
+  const { color, head } = design();
+  const t = invoiceTheme(color);
+  const vars = { '--ink': t.text, '--ink-fill': t.accent, '--ink-on': t.onAccent, '--ink-soft': t.soft, '--ink-line': t.line };
+  for (const [k, v] of Object.entries(vars)) target.style.setProperty(k, v);
+  target.classList.toggle('head-light', head === 'light');
+}
+
 function renderPreview(totals) {
+  applyDesign(preview);
   const inv = invoice();
   const s = settings();
   const c = s.company;
@@ -819,9 +837,78 @@ function fillSettings() {
     else input.value = value ?? '';
   }
   renderLogo();
+  renderDesign();
   renderCustomerList();
   renderCompanyStatus();
 }
+
+// Rechnungsdesign: Farbfelder, Farbrad (eigene Farbe), Hex-Feld und Tabellenkopf
+const swatchBox = $('#swatches');
+const customSwatch = $('#swatch-custom');
+swatchBox.prepend(...PRESET_COLORS.map(({ hex, name }) => {
+  const b = el('button', { type: 'button', className: 'swatch', title: name });
+  b.setAttribute('role', 'radio');
+  b.setAttribute('aria-label', name);
+  b.dataset.color = hex;
+  b.style.setProperty('--swatch', hex);
+  return b;
+}));
+
+function renderDesign() {
+  const { color, head } = design();
+  const preset = PRESET_COLORS.some((p) => p.hex === color);
+  for (const b of $$('.swatch[data-color]', swatchBox)) {
+    const on = b.dataset.color === color;
+    b.classList.toggle('is-active', on);
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on || (!preset && b === swatchBox.firstElementChild) ? 0 : -1;
+  }
+  customSwatch.classList.toggle('is-active', !preset);
+  customSwatch.style.setProperty('--swatch', preset ? 'transparent' : color);
+  $('#custom-color').value = color.toLowerCase();
+  const hexInput = $('#hex-input');
+  if (document.activeElement !== hexInput) { hexInput.value = color; hexInput.classList.remove('is-invalid'); }
+  $('#hex-dot').style.background = color;
+  for (const chip of $$('#head-chips .chip')) {
+    const on = chip.dataset.head === head;
+    chip.classList.toggle('is-active', on);
+    chip.setAttribute('aria-checked', String(on));
+  }
+  $('#design-reset').hidden = color === DEFAULT_COLOR && head === 'filled';
+  applyDesign($('#design-sample'));
+}
+
+function setDesign(patch) {
+  settings().design = { ...design(), ...patch };
+  renderDesign();
+  update();
+}
+
+swatchBox.addEventListener('click', (e) => {
+  const b = e.target.closest('.swatch[data-color]');
+  if (b) setDesign({ color: b.dataset.color });
+});
+swatchBox.addEventListener('keydown', (e) => {
+  const list = $$('.swatch[data-color]', swatchBox);
+  const i = list.indexOf(document.activeElement);
+  if (i < 0 || !['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) return;
+  e.preventDefault();
+  const next = list[(i + (e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length];
+  next.focus();
+  setDesign({ color: next.dataset.color });
+});
+$('#custom-color').addEventListener('input', (e) => setDesign({ color: normalizeHex(e.target.value) }));
+$('#hex-input').addEventListener('input', (e) => {
+  const hex = normalizeHex(e.target.value);
+  e.target.classList.toggle('is-invalid', !hex && e.target.value.trim().length >= 4);
+  if (hex) setDesign({ color: hex });
+});
+$('#hex-input').addEventListener('blur', () => renderDesign());
+$('#head-chips').addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip[data-head]');
+  if (chip) setDesign({ head: chip.dataset.head });
+});
+$('#design-reset').addEventListener('click', () => setDesign({ color: DEFAULT_COLOR, head: 'filled' }));
 
 function renderCompanyStatus() {
   const missing = companyMissing().length;

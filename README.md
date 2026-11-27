@@ -37,6 +37,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 **Verwalten**
 - **Rechnungsarchiv** mit Status (Entwurf/Erstellt), Duplizieren und Löschen mit Rückgängig
 - **Einstellungen** für Firmendaten, Bankverbindung und **Logo-Upload**
+- **Rechnungsdesign:** Farbe per Farbfeld, Farbrad oder Hex-Code, Tabellenkopf gefüllt oder hell – die Schriftfarbe wird nach WCAG-Kontrast automatisch angepasst, damit auch helle Farben lesbar bleiben
 - Vorschau am Desktop als **ganze Seite** mit Zoom (+/−, Strg/⌘ + Mausrad, Touchpad)
 - **Heller Standard-Modus und Dark Mode**, mobil optimiert bis 280 px Breite
 
@@ -72,6 +73,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 rechnungs-generator/
 ├── index.html                     # Aufbau: Schritte, Vorschau, Seitenfenster
 ├── css/style.css                  # Tokens (hell/dunkel), Layout, Druck-Layout
+├── js/color.js                  # Farbtöne und Kontrast fürs Rechnungsdesign (getestet)
 ├── js/invoice.js                  # Logik: Cent-Arithmetik, USt, Rabatte, Skonto, GiroCode, XRechnung
 ├── js/app.js                      # Oberfläche, Speicherung, Vorschau, Export
 ├── js/vendor/                     # QR-Bibliothek (MIT)

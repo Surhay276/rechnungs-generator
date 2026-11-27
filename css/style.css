@@ -317,6 +317,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
   zoom: var(--paper-zoom);
   flex: none; margin: 0 auto; width: 210mm; min-height: 297mm;
   padding: 16mm 18mm 12mm 20mm; display: flex; flex-direction: column;
+  --ink-fill: #1D2939; --ink-on: #fff; --ink-soft: #E8EAEB; --ink-line: #C7CACE;
   background: #fff; color: #1d2939; color-scheme: light;
   font-family: var(--font); font-size: 9.5pt; line-height: 1.45;
   border-radius: 2px; box-shadow: 0 12px 32px rgb(16 24 40 / .14), 0 0 0 1px rgb(16 24 40 / .06);
@@ -334,15 +335,17 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .inv-intro { white-space: pre-line; margin-bottom: 6mm; }
 .paper table { width: 100%; border-collapse: collapse; }
 .paper .num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.inv-items th { background: var(--ink); color: #fff; font-size: 8.5pt; font-weight: 600; text-align: left; padding: 2.2mm 2.5mm; }
+.inv-items th { background: var(--ink-fill); color: var(--ink-on); font-size: 8.5pt; font-weight: 600; text-align: left; padding: 2.2mm 2.5mm; }
 .inv-items th.num { text-align: right; }
 .inv-items td { padding: 2.6mm 2.5mm; border-bottom: 1px solid #eaecf0; vertical-align: top; }
 .inv-items .pos { width: 10mm; color: #667085; }
-.inv-items th.pos { color: #fff; }
+.inv-items th.pos { color: var(--ink-on); }
+/* Variante „Hell“: getönter Kopf mit Linie in der gewählten Farbe */
+.head-light .inv-items th { background: var(--ink-soft); color: var(--ink); border-bottom: 1.5px solid var(--ink-fill); }
 .inv-details { display: block; font-size: 8.5pt; color: #667085; margin-top: .5mm; white-space: pre-line; }
 .inv-sum { width: 52% !important; margin: 4mm 0 0 auto; }
 .inv-sum td { padding: 1.4mm 2.5mm; }
-.inv-sum .grand td { background: #f2f4f7; font-weight: 700; font-size: 10.5pt; color: var(--ink); padding: 2.4mm 2.5mm; }
+.inv-sum .grand td { background: var(--ink-soft); font-weight: 700; font-size: 10.5pt; color: var(--ink); padding: 2.4mm 2.5mm; }
 .inv-pay { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-top: 8mm; }
 .inv-pay p + p { margin-top: 2mm; }
 .inv-qr { flex: none; display: flex; flex-direction: column; align-items: center; gap: 1.2mm; padding: 2mm; border: 1px solid #eaecf0; border-radius: 2mm; }
@@ -381,6 +384,46 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .data-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .danger-text { color: var(--error-text); }
 .danger-text:hover { background: var(--error-soft); color: var(--error-text); }
+
+/* Rechnungsdesign */
+.design-row { display: flex; gap: 20px; align-items: flex-start; }
+.design-controls { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.swatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.swatch {
+  position: relative; width: 36px; height: 36px; flex: none; border-radius: 50%; cursor: pointer; padding: 0;
+  border: 0; background: var(--swatch); box-shadow: inset 0 0 0 1px rgb(16 24 40 / .12);
+  transition: transform .15s;
+}
+.swatch::after { content: ''; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid transparent; transition: border-color .15s; }
+.swatch:hover { transform: scale(1.06); }
+.swatch.is-active::after { border-color: var(--text); }
+.swatch:focus-visible { box-shadow: inset 0 0 0 1px rgb(16 24 40 / .12), var(--ring); }
+/* Eigene Farbe: Farbrad, darin die gewählte Farbe */
+.swatch-custom { display: grid; place-items: center; background: conic-gradient(from 0deg, #f04438, #f79009, #fac515, #17b26a, #06aed4, #2e90fa, #7a5af8, #ee46bc, #f04438); }
+.swatch-custom::before { content: ''; width: 16px; height: 16px; border-radius: 50%; background: var(--swatch, transparent); box-shadow: 0 0 0 2px #fff; opacity: 0; transition: opacity .15s; }
+.swatch-custom.is-active::before { opacity: 1; }
+.swatch-custom input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+.swatch-custom:has(input:focus-visible) { box-shadow: var(--ring); }
+.hex-field { position: relative; display: block; width: 132px; margin-top: 10px; }
+.hex-field .input { padding-left: 36px; text-transform: uppercase; }
+.hex-field .input.is-invalid { border-color: var(--error); }
+.hex-dot { position: absolute; left: 12px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 4px; box-shadow: inset 0 0 0 1px rgb(16 24 40 / .15); pointer-events: none; }
+/* Mini-Vorschau – immer hell wie das echte Blatt */
+.design-sample {
+  --ink: #1D2939; --ink-fill: #1D2939; --ink-on: #fff; --ink-soft: #E8EAEB;
+  flex: none; width: 148px; display: flex; flex-direction: column; gap: 5px; padding: 12px;
+  background: #fff; color: #344054; color-scheme: light; border-radius: var(--radius-md);
+  box-shadow: 0 0 0 1px rgb(16 24 40 / .08), 0 4px 12px rgb(16 24 40 / .08); font-size: 8px; line-height: 1.2;
+}
+.ds-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; letter-spacing: -.01em; }
+.ds-head, .ds-row, .ds-total { white-space: nowrap; display: flex; justify-content: space-between; gap: 8px; padding: 4px 5px; }
+.ds-head { background: var(--ink-fill); color: var(--ink-on); font-weight: 600; border-radius: 1px; }
+.head-light .ds-head { background: var(--ink-soft); color: var(--ink); box-shadow: inset 0 -1.5px 0 var(--ink-fill); }
+.ds-row { border-bottom: 1px solid #eaecf0; }
+.ds-row i { display: block; height: 4px; border-radius: 2px; background: #e4e7ec; }
+.ds-row i:first-child { width: 55%; }
+.ds-row i:last-child { width: 22%; }
+.ds-total { margin-left: 30%; background: var(--ink-soft); color: var(--ink); font-weight: 700; }
 
 .logo-row { display: flex; gap: 16px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
 .logo-preview { display: grid; place-items: center; width: 112px; height: 72px; flex: none; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: #fff; color: #98a2b3; overflow: hidden; }
@@ -476,6 +519,8 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
   .onboarding .btn { width: 100%; }
   .form-grid .col-half { grid-column: span 6; }
   .settings-card { padding: 14px; }
+  .design-row { flex-direction: column-reverse; gap: 14px; }
+  .design-sample { width: 100%; max-width: 240px; }
   .logo-row { align-items: flex-start; }
   .title-prefix { display: none; }
   .step-label { font-size: 12px; }
