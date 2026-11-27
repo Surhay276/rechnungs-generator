@@ -5,12 +5,12 @@
  * - XRechnung 3.0 (profile „xrechnung“): als eigene XML-Datei, z. B. für Behörden
  * - ZUGFeRD 2 / Factur-X, Profil EN 16931 (profile „en16931“): eingebettet ins PDF/A-3
  */
-import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=27';
-import { invoiceTotals, skontoInfo } from './calc.js?v=27';
-import { dueDate, servicePeriod, formatDate } from './dates.js?v=27';
-import { kindOf, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=27';
-import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=27';
-import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=27';
+import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=28';
+import { invoiceTotals, skontoInfo } from './calc.js?v=28';
+import { dueDate, servicePeriod, formatDate } from './dates.js?v=28';
+import { kindOf, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=28';
+import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=28';
+import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=28';
 
 export const PROFILES = Object.freeze({
   xrechnung: {

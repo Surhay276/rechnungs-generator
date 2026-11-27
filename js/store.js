@@ -4,9 +4,9 @@
  */
 import {
   nextInvoiceNumber, DEFAULT_NUMBER_FORMAT, todayIso, isLocked, finalizeInvoice, settingsFor, invoiceTotals, serviceModeOf, taxKeyOf,
-} from './invoice.js?v=27';
-import { DEFAULT_COLOR, normalizeHex } from './color.js?v=27';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=27';
+} from './invoice.js?v=28';
+import { DEFAULT_COLOR, normalizeHex } from './color.js?v=28';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=28';
 
 export const STORAGE_KEY = 'rechnungen:v3';
 

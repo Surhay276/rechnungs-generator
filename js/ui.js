@@ -94,15 +94,92 @@ export function downloadBlob(blob, name) {
   return url;
 }
 
-// ---------- Info-Knopf „i“ ----------
-/** Ein Klick auf .info-btn blendet den Text ein oder aus, auf den aria-controls zeigt. Gilt seitenweit. */
+// ---------- Info-Sprechblase ----------
+// Am PC (Maus): beim Überfahren. Am Handy/Tablet: einmal tippen, verschwindet nach 8 s oder beim nächsten Tippen.
+// Mit Tastatur: beim Fokussieren, Esc schließt. Der Text steht im Attribut data-tip des Knopfs.
+const TIP_DURATION = 8000;
+const supportsPopover = typeof HTMLElement !== 'undefined' && 'popover' in HTMLElement.prototype;
+let tip = null;
+let tipOwner = null;
+let tipTimer;
+
+function tipElement() {
+  if (!tip) {
+    tip = el('div', { className: 'tooltip', id: 'tooltip', role: 'tooltip' }, el('span', { className: 'tooltip-text' }));
+    if (supportsPopover) tip.popover = 'manual'; // oberste Ebene: liegt auch über geöffneten Dialogen
+  }
+  return tip;
+}
+
+function placeTip(btn) {
+  const r = btn.getBoundingClientRect();
+  const w = tip.offsetWidth;
+  const h = tip.offsetHeight;
+  const gap = 10;
+  const above = r.top - h - gap >= 8;
+  const left = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), window.innerWidth - w - 8);
+  tip.style.left = `${left}px`;
+  tip.style.top = `${above ? r.top - h - gap : r.bottom + gap}px`;
+  tip.style.setProperty('--arrow-x', `${r.left + r.width / 2 - left}px`);
+  tip.dataset.side = above ? 'top' : 'bottom';
+}
+
+export function showTip(btn, { autoHide = false } = {}) {
+  const t = tipElement();
+  t.firstElementChild.textContent = btn.dataset.tip;
+  // In einem geöffneten Dialog muss die Blase im Dialog hängen, sonst ist sie dort nicht sichtbar
+  const host = btn.closest('dialog[open]') ?? document.body;
+  if (t.parentElement !== host) {
+    if (supportsPopover && t.matches(':popover-open')) t.hidePopover();
+    host.append(t);
+  }
+  if (supportsPopover && !t.matches(':popover-open')) t.showPopover();
+  t.hidden = false;
+  tipOwner?.removeAttribute('aria-describedby');
+  tipOwner = btn;
+  btn.setAttribute('aria-describedby', 'tooltip');
+  placeTip(btn);
+  clearTimeout(tipTimer);
+  if (autoHide) tipTimer = setTimeout(hideTip, TIP_DURATION);
+}
+
+export function hideTip() {
+  clearTimeout(tipTimer);
+  if (!tip || !tipOwner) return;
+  tipOwner.removeAttribute('aria-describedby');
+  tipOwner = null;
+  if (supportsPopover && tip.matches(':popover-open')) tip.hidePopover();
+  tip.hidden = true;
+}
+
+const infoBtn = (target) => target?.closest?.('.info-btn[data-tip]');
+document.addEventListener('pointerover', (e) => {
+  const btn = infoBtn(e.target);
+  if (btn && e.pointerType === 'mouse') showTip(btn);
+});
+document.addEventListener('pointerout', (e) => {
+  const btn = infoBtn(e.target);
+  if (btn && e.pointerType === 'mouse' && !btn.contains(e.relatedTarget) && !btn.matches(':focus-visible')) hideTip();
+});
+// Antippen (Touch/Stift): öffnen bzw. wieder schließen; Tippen irgendwo anders schließt ebenfalls
+document.addEventListener('pointerdown', (e) => {
+  if (!tipOwner || e.pointerType === 'mouse') return;
+  if (infoBtn(e.target) !== tipOwner) hideTip();
+}, true);
 document.addEventListener('click', (e) => {
-  const btn = e.target.closest('.info-btn');
+  const btn = infoBtn(e.target);
   if (!btn) return;
   e.preventDefault();
-  const target = document.getElementById(btn.getAttribute('aria-controls'));
-  if (!target) return;
-  const open = btn.getAttribute('aria-expanded') !== 'true';
-  btn.setAttribute('aria-expanded', String(open));
-  target.hidden = !open;
+  if (e.pointerType === 'mouse') { showTip(btn); return; } // Maus: Klick lässt die Blase offen
+  if (tipOwner === btn) hideTip();
+  else showTip(btn, { autoHide: true });
 });
+document.addEventListener('focusin', (e) => {
+  const btn = infoBtn(e.target);
+  if (btn && btn.matches(':focus-visible')) showTip(btn);
+});
+document.addEventListener('focusout', (e) => { if (infoBtn(e.target) === tipOwner) hideTip(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && tipOwner) hideTip(); });
+window.addEventListener('scroll', () => { if (tipOwner) hideTip(); }, { capture: true, passive: true });
+window.addEventListener('resize', () => { if (tipOwner) hideTip(); });
+document.addEventListener('close', hideTip, true); // Dialog geschlossen

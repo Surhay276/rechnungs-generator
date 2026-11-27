@@ -6,18 +6,18 @@ import {
   UNITS, TAX_TYPES, TAX_TYPE_GROUPS, CURRENCIES, countryOptions, kindOf, isLocked, finalizeInvoice, checkInvoice, isError,
   validateXRechnungFields, validateInvoiceFields, toXRechnung, toPriceUnits, priceToInput, convertPrice, toCents, centsToInput,
   lineNet, formatMoney, formatDate, dueDate, addDays, isValidIBAN, formatIBAN, taxKeyOf, parseScaled, todayIso,
-} from './invoice.js?v=27';
-import { $, $$, el, icon, getPath, setPath, fillSelect, toast, ask, prefersReducedMotion } from './ui.js?v=27';
+} from './invoice.js?v=28';
+import { $, $$, el, icon, getPath, setPath, fillSelect, toast, ask, prefersReducedMotion } from './ui.js?v=28';
 import {
   state, settings, invoice, invSettings, validationContext, totalsOf, design, emptyCustomer, emptyItem, newId, save, persist, requestPersistentStorage,
-} from './store.js?v=27';
-import { renderPreview, setupZoom } from './preview.js?v=27';
-import { viewOf, buildDocuments, storeOriginal, originalOf, openPendingTab, deliverPdf, deliverXml } from './export.js?v=27';
-import { saveOriginal } from './originals.js?v=27';
-import { initSettingsPanel } from './settings-panel.js?v=27';
-import { initArchivePanel } from './archive-panel.js?v=27';
-import { attachAddressLookup, locatePlace } from './address.js?v=27';
-import { fetchRate } from './fx.js?v=27';
+} from './store.js?v=28';
+import { renderPreview, setupZoom } from './preview.js?v=28';
+import { viewOf, buildDocuments, storeOriginal, originalOf, openPendingTab, deliverPdf, deliverXml } from './export.js?v=28';
+import { saveOriginal } from './originals.js?v=28';
+import { initSettingsPanel } from './settings-panel.js?v=28';
+import { initArchivePanel } from './archive-panel.js?v=28';
+import { attachAddressLookup, locatePlace } from './address.js?v=28';
+import { fetchRate } from './fx.js?v=28';
 
 const form = $('#invoice-form');
 const itemsBox = $('#items');

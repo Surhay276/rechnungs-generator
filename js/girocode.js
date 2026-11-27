@@ -2,8 +2,8 @@
  * Inhalt eines GiroCodes (EPC-QR, EPC069-12, Version 002): die Banking-App liest Empfänger, IBAN,
  * Betrag und Verwendungszweck direkt ein. Nur für Euro-Beträge.
  */
-import { centsToDecimal } from './money.js?v=27';
-import { isValidIBAN, cleanIBAN } from './checks.js?v=27';
+import { centsToDecimal } from './money.js?v=28';
+import { isValidIBAN, cleanIBAN } from './checks.js?v=28';
 
 export function epcPayload({ name, iban, bic = '', amountCents, reference = '' }) {
   const cleanName = String(name ?? '').trim();

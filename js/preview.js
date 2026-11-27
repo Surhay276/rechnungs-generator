@@ -2,9 +2,9 @@
  * Vorschau der Rechnung als A4-Blatt (HTML) und Zoom am Desktop.
  * Inhalt kommt aus demselben Modell wie das PDF (view.js).
  */
-import { $, el, icon, svgEl, multiline } from './ui.js?v=27';
-import { invoiceTheme } from './color.js?v=27';
-import { design } from './store.js?v=27';
+import { $, el, icon, svgEl, multiline } from './ui.js?v=28';
+import { invoiceTheme } from './color.js?v=28';
+import { design } from './store.js?v=28';
 
 /** Überträgt die abgeleiteten Farbtöne als CSS-Variablen auf ein Element (Blatt oder Muster). */
 export function applyDesign(target, source) {
