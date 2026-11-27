@@ -2,11 +2,12 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=20';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=20';
+  isLocked, finalizeInvoice, settingsFor, copyAsDraft,
+} from './invoice.js?v=22';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=22';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=20';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=22';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -115,7 +116,11 @@ function load() {
 
 let store = load();
 if (!store.invoices.some((i) => i.id === store.currentId)) store.currentId = store.invoices[0].id;
+// Ältere Speicherstände: abgeschlossene Rechnungen ohne eingefrorene Firmendaten nachträglich festschreiben
+store.invoices = store.invoices.map((inv) => (isLocked(inv) && !inv.snapshot ? finalizeInvoice({ ...inv, status: 'entwurf' }, store.settings, { design: store.settings.design ?? null, now: inv.updatedAt }) : inv));
 const invoice = () => store.invoices.find((i) => i.id === store.currentId);
+/** Einstellungen für die geöffnete Rechnung – bei abgeschlossenen die eingefrorenen. */
+const invSettings = (inv = invoice()) => settingsFor(inv, settings());
 const settings = () => store.settings;
 
 let saveTimer;
@@ -197,7 +202,27 @@ function fillForm() {
   renderItems();
   $('#skonto-fields').hidden = !inv.skonto?.enabled;
   renderBankSummary(); // setzt den GiroCode-Schalter passend zur IBAN
+  applyLock();
 }
+
+/**
+ * Abgeschlossene Rechnung: alle Eingaben gesperrt, Hinweis oben, Korrektur nur als Kopie.
+ * Steuerelemente mit [data-keep] (Export, Kopie anlegen) bleiben bedienbar.
+ */
+function applyLock() {
+  const locked = isLocked(invoice());
+  $('.editor').classList.toggle('is-locked', locked);
+  $('#locked-note').hidden = !locked;
+  $('#save-draft').hidden = locked;
+  const controls = $$('.step-panel input, .step-panel select, .step-panel textarea, .step-panel button').filter((c) => !c.closest('[data-keep]') && !('keep' in c.dataset));
+  if (locked) {
+    for (const c of controls) if (!c.disabled) { c.disabled = true; c.dataset.locked = ''; }
+  } else if (controls.some((c) => 'locked' in c.dataset)) {
+    for (const c of controls) if ('locked' in c.dataset) { c.disabled = false; delete c.dataset.locked; }
+    renderBankSummary(); // GiroCode-Schalter wieder nach IBAN richten
+  }
+}
+$('#locked-copy').addEventListener('click', () => duplicateInvoice(invoice().id));
 
 form.addEventListener('input', (e) => {
   const t = e.target;
@@ -287,7 +312,7 @@ const template = $('#item-template');
 
 function renderItems() {
   const inv = invoice();
-  const ku = settings().kleinunternehmer;
+  const ku = invSettings(inv).kleinunternehmer;
   itemsBox.replaceChildren(...inv.items.map((item, index) => {
     const card = template.content.firstElementChild.cloneNode(true);
     card.dataset.index = index;
@@ -385,7 +410,7 @@ $('#add-item').addEventListener('click', () => {
 
 // ---------- Zahlung & Texte ----------
 function renderBankSummary() {
-  const c = settings().company;
+  const c = invSettings().company;
   const ok = isValidIBAN(c.iban);
   const status = ok ? formatIBAN(c.iban) : c.iban ? `${formatIBAN(c.iban)} – IBAN ungültig (Prüfziffer stimmt nicht)` : 'Noch keine IBAN hinterlegt';
   const summary = $('#bank-summary');
@@ -457,7 +482,7 @@ function renderFieldErrors(errors = currentErrors()) {
 }
 
 let exportMode = 'pdf';
-const currentErrors = () => (exportMode === 'xml' ? validateXRechnungFields : validateInvoiceFields)(invoice(), settings());
+const currentErrors = () => (exportMode === 'xml' ? validateXRechnungFields : validateInvoiceFields)(invoice(), invSettings());
 
 function goToField(field) {
   const target = stepOf(field);
@@ -494,14 +519,35 @@ function checkBeforeExport(mode) {
   return false;
 }
 
+/** Rechnung festschreiben: Status, Zeitpunkt und eingefrorene Firmendaten/Design. */
 function markCreated() {
-  invoice().status = 'erstellt';
-  save();
-  renderTitle();
+  const inv = invoice();
+  if (isLocked(inv)) return;
+  const done = finalizeInvoice(inv, settings(), { design: design() });
+  store.invoices[store.invoices.indexOf(inv)] = done;
+  fillForm();
+  update();
 }
 
-function exportPdf() {
+/** Vor dem ersten Export fragen – danach ist die Rechnung nicht mehr änderbar. */
+function confirmFinalize(mode) {
+  if (isLocked(invoice())) return Promise.resolve(true);
+  const dialog = $('#finalize');
+  $('#finalize-number').textContent = invoice().number;
+  $('#finalize-confirm-label').textContent = mode === 'xml' ? 'Abschließen & E-Rechnung laden' : 'Abschließen & PDF speichern';
+  return new Promise((resolve) => {
+    const done = (ok) => { dialog.removeEventListener('close', onClose); resolve(ok); };
+    const onClose = () => done(dialog.returnValue === 'confirm');
+    dialog.returnValue = '';
+    dialog.addEventListener('close', onClose);
+    dialog.showModal();
+    $('#finalize-confirm').focus();
+  });
+}
+
+async function exportPdf() {
   if (!checkBeforeExport('pdf')) return;
+  if (!(await confirmFinalize('pdf'))) return;
   markCreated();
   const previousTitle = document.title;
   document.title = `${invoice().number} ${invoice().customer.name}`.trim(); // Dateiname im PDF-Dialog
@@ -509,13 +555,14 @@ function exportPdf() {
   document.title = previousTitle;
 }
 
-function exportXml() {
+async function exportXml() {
   if (!checkBeforeExport('xml')) return;
-  const xml = toXRechnung(invoice(), settings());
+  if (!(await confirmFinalize('xml'))) return;
+  markCreated();
+  const xml = toXRechnung(invoice(), invSettings());
   const a = el('a', { href: URL.createObjectURL(new Blob([xml], { type: 'application/xml' })), download: `${invoice().number}.xml` });
   a.click();
   URL.revokeObjectURL(a.href);
-  markCreated();
   toast('E-Rechnung (XRechnung 3.0) heruntergeladen');
 }
 
@@ -554,14 +601,14 @@ function giroCodeSvg(payload) {
 }
 
 /** Gewähltes Rechnungsdesign – ältere Speicherstände ohne Design bekommen den Standard. */
-function design() {
-  const d = settings().design ?? {};
+function design(source = settings()) {
+  const d = source.design ?? {};
   return { color: normalizeHex(d.color) ?? DEFAULT_COLOR, head: d.head === 'light' ? 'light' : 'filled' };
 }
 
 /** Überträgt die abgeleiteten Farbtöne als CSS-Variablen auf ein Element (Blatt oder Muster). */
-function applyDesign(target) {
-  const { color, head } = design();
+function applyDesign(target, source = settings()) {
+  const { color, head } = design(source);
   const t = invoiceTheme(color);
   const vars = { '--ink': t.text, '--ink-fill': t.accent, '--ink-on': t.onAccent, '--ink-soft': t.soft, '--ink-line': t.line };
   for (const [k, v] of Object.entries(vars)) target.style.setProperty(k, v);
@@ -569,9 +616,9 @@ function applyDesign(target) {
 }
 
 function renderPreview(totals) {
-  applyDesign(preview);
   const inv = invoice();
-  const s = settings();
+  const s = invSettings(inv);
+  applyDesign(preview, s);
   const c = s.company;
   const k = inv.customer;
   const ku = s.kleinunternehmer;
@@ -658,16 +705,17 @@ function renderPreview(totals) {
     el('table', { className: 'inv-items' },
       el('thead', {}, el('tr', {},
         el('th', { className: 'pos', textContent: 'Pos.' }), el('th', { textContent: 'Beschreibung' }),
-        el('th', { className: 'num', textContent: 'Menge' }), el('th', { className: 'num', textContent: 'Einzelpreis' }),
-        ku ? null : el('th', { className: 'num', textContent: 'USt' }),
-        el('th', { className: 'num', textContent: 'Betrag' }))),
+        el('th', { className: 'num col-qty', textContent: 'Menge' }), el('th', { className: 'num col-price', textContent: 'Einzelpreis' }),
+        ku ? null : el('th', { className: 'num col-tax', textContent: 'USt' }),
+        el('th', { className: 'num col-total', textContent: 'Betrag' }))),
       el('tbody', {}, ...rows)),
     el('table', { className: 'inv-sum' }, el('tbody', {}, ...sums.filter(Boolean))),
     ku && el('p', { className: 'inv-note', textContent: KLEINUNTERNEHMER_HINWEIS }),
     (payText || qr) && el('div', { className: 'inv-pay' },
       el('div', {}, payText && el('p', { textContent: payText }), skontoText && el('p', { textContent: skontoText })),
-      qr && (qr.tagName === 'BUTTON' ? qr : el('figure', { className: 'inv-qr' }, qr, el('figcaption', { textContent: 'Mit Banking-App scannen' })))),
+      qr && (qr.tagName === 'BUTTON' ? qr : el('figure', { className: 'inv-qr' }, qr, el('figcaption', { textContent: 'Jetzt mit dem Smartphone scannen' })))),
     inv.note && el('p', { className: 'inv-note', textContent: inv.note }),
+    el('div', { className: 'inv-body-end', ariaHidden: 'true' }),
     el('footer', { className: 'inv-foot' },
       el('div', {}, el('strong', { textContent: c.name || '' }), el('br'), ...multiline(formatAddress(c))),
       el('div', {},
@@ -691,14 +739,18 @@ function renderTitle() {
 }
 function renderSaveState(justSaved) {
   const inv = invoice();
-  const status = inv.status === 'erstellt' ? 'Erstellt' : 'Entwurf';
-  $('#save-state').textContent = justSaved ? `${status} · gespeichert um ${timeFmt.format(new Date())}` : `${status} · wird automatisch gespeichert`;
+  if (isLocked(inv)) {
+    $('#save-state').textContent = `Abgeschlossen${inv.lockedAt ? ` am ${dateFmt.format(new Date(inv.lockedAt - new Date().getTimezoneOffset() * 60000))}` : ''} · nicht mehr änderbar`;
+    return;
+  }
+  $('#save-state').textContent = justSaved ? `Entwurf · gespeichert um ${timeFmt.format(new Date())}` : 'Entwurf · wird automatisch gespeichert';
 }
 
 function update() {
   let totals = null;
-  try { totals = calculateTotals(invoice().items, { kleinunternehmer: settings().kleinunternehmer, discount: invoice().discount }); } catch { /* ungültige Eingabe */ }
+  try { totals = calculateTotals(invoice().items, { kleinunternehmer: invSettings().kleinunternehmer, discount: invoice().discount }); } catch { /* ungültige Eingabe */ }
   renderPreview(totals);
+  applyLock();
   renderFieldErrors();
   renderTitle();
   $('#sumbar-total').textContent = totals ? formatEUR(totals.gross) : '–';
@@ -792,7 +844,7 @@ function renderArchive() {
   const sorted = [...store.invoices].sort((a, b) => b.updatedAt - a.updatedAt);
   list.replaceChildren(...sorted.map((inv) => {
     let gross = '–';
-    try { gross = formatEUR(calculateTotals(inv.items, { kleinunternehmer: settings().kleinunternehmer, discount: inv.discount }).gross); } catch { /* ungültig */ }
+    try { gross = formatEUR(calculateTotals(inv.items, { kleinunternehmer: invSettings(inv).kleinunternehmer, discount: inv.discount }).gross); } catch { /* ungültig */ }
     const isCurrent = inv.id === store.currentId;
     return el('li', { className: `invoice-row${isCurrent ? ' is-current' : ''}` },
       el('button', { type: 'button', className: 'invoice-open', onclick: () => openInvoice(inv.id) },
@@ -800,10 +852,15 @@ function renderArchive() {
         el('span', { className: 'invoice-customer', textContent: inv.customer.name || 'Kein Kunde' }),
         el('span', { className: 'invoice-date', textContent: formatDate(inv.date) })),
       el('span', { className: 'invoice-amount mono', textContent: gross }),
-      el('span', { className: `badge badge-${inv.status}`, textContent: inv.status === 'erstellt' ? 'Erstellt' : 'Entwurf' }),
+      el('span', { className: `badge badge-${inv.status}` }, isLocked(inv) ? icon('lock') : '', isLocked(inv) ? 'Abgeschlossen' : 'Entwurf'),
       el('div', { className: 'invoice-actions' },
         el('button', { type: 'button', className: 'icon-btn', title: 'Duplizieren', ariaLabel: `${inv.number} duplizieren`, onclick: () => duplicateInvoice(inv.id) }, icon('copy')),
-        el('button', { type: 'button', className: 'icon-btn danger', title: 'Löschen', ariaLabel: `${inv.number} löschen`, onclick: () => deleteInvoice(inv.id) }, icon('trash'))));
+        el('button', {
+          type: 'button', className: 'icon-btn danger', disabled: isLocked(inv),
+          title: isLocked(inv) ? 'Abgeschlossene Rechnungen bleiben erhalten (Aufbewahrungspflicht)' : 'Löschen',
+          ariaLabel: isLocked(inv) ? `${inv.number} ist abgeschlossen und kann nicht gelöscht werden` : `${inv.number} löschen`,
+          onclick: () => deleteInvoice(inv.id),
+        }, icon('trash'))));
   }));
 }
 function openArchive() { renderArchive(); openDrawer($('#archive')); }
@@ -832,12 +889,13 @@ $('#new-invoice').addEventListener('click', () => {
 });
 function duplicateInvoice(id) {
   const source = store.invoices.find((i) => i.id === id);
-  const copy = { ...structuredClone(source), id: newId(), number: newInvoice().number, status: 'entwurf', date: today(), dueDate: '', updatedAt: Date.now() };
+  const copy = copyAsDraft(source, { id: newId(), number: newInvoice().number, date: today() });
   store.invoices.push(copy);
   openInvoice(copy.id);
   toast(`Kopie als ${copy.number} angelegt`);
 }
 function deleteInvoice(id) {
+  if (isLocked(store.invoices.find((i) => i.id === id))) return; // Aufbewahrungspflicht
   const before = structuredClone(store);
   store.invoices = store.invoices.filter((i) => i.id !== id);
   if (!store.invoices.length) store.invoices.push(newInvoice());

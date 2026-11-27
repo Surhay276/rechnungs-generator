@@ -30,12 +30,13 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 
 **Prüfen & Exportieren**
 - **Pflichtfeld-Prüfung** nach § 14 UStG: fehlende Angaben werden direkt am Feld markiert, der Export springt dorthin
-- **GiroCode** (EPC-QR) auf der Rechnung – Kunden zahlen per Banking-App ohne Abtippen
-- **PDF** über die Druckfunktion des Browsers (eigenes A4-Druck-Layout)
+- **GiroCode** (EPC-QR) auf der Rechnung – Kunden scannen ihn mit dem Smartphone und zahlen ohne Abtippen
+- **PDF** über die Druckfunktion des Browsers (eigenes A4-Layout mit Rändern nach DIN 5008, sauberer Seitenumbruch bei langen Rechnungen)
 - **E-Rechnung im Format XRechnung 3.0** (XML nach EN 16931, Syntax UBL)
 
 **Verwalten**
-- **Rechnungsarchiv** mit Status (Entwurf/Erstellt), Duplizieren und Löschen mit Rückgängig
+- **Festschreibung nach GoBD:** Beim ersten Export wird die Rechnung nach einer Bestätigung abgeschlossen – danach ist sie nicht mehr änderbar oder löschbar. Firmendaten, Steuerstatus und Design werden dabei eingefroren; Korrekturen laufen über eine Kopie mit neuer Nummer
+- **Rechnungsarchiv** mit Status (Entwurf/Abgeschlossen), Duplizieren und Löschen von Entwürfen mit Rückgängig
 - **Einstellungen** für Firmendaten, Bankverbindung und **Logo-Upload**
 - **Rechnungsdesign:** Farbe per Farbfeld, Farbrad oder Hex-Code, Tabellenkopf gefüllt oder hell – die Schriftfarbe wird nach WCAG-Kontrast automatisch angepasst, damit auch helle Farben lesbar bleiben
 - Vorschau am Desktop als **ganze Seite** mit Zoom (+/−, Strg/⌘ + Mausrad, Touchpad)
@@ -52,6 +53,8 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 **Wie wird ein Gesamtrabatt bei mehreren Steuersätzen verteilt?** Anteilig nach dem Verfahren der größten Reste. So mindert der Rabatt jede Steuerbasis korrekt und die Summe stimmt trotzdem auf den Cent.
 
 **Warum strukturierte Adressen?** Für die E-Rechnung müssen Straße, PLZ und Ort einzeln vorliegen. Freitext-Adressen hätten zu ungültigen Dateien geführt.
+
+**Warum lassen sich abgeschlossene Rechnungen nicht mehr ändern?** Nach den GoBD müssen ausgestellte Rechnungen unveränderbar aufbewahrt werden. Es reicht nicht, nur die Eingabefelder zu sperren: Würden Firmendaten aus den aktuellen Einstellungen gelesen, könnte eine spätere Adressänderung alte Rechnungen nachträglich verfälschen. Deshalb speichert die App beim Abschließen eine eingefrorene Kopie dieser Angaben direkt an der Rechnung (getestet in `tests/invoice.test.js`).
 
 **Was hat die offizielle Prüfung gezeigt?** Der KoSIT-Validator hat anfangs drei von vier Beispiel-Rechnungen abgelehnt: Regel BR-CO-26 verlangt eine Verkäuferkennung – eine reine Steuernummer reicht dafür nicht. Ohne USt-IdNr. (z. B. als Kleinunternehmer) übermittelt die App die Steuernummer deshalb zusätzlich als Verkäuferkennung (BT-29). Seitdem werden alle Varianten angenommen.
 

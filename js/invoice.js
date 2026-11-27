@@ -379,3 +379,27 @@ ${lines}
 </ubl:Invoice>
 `.replace(/\n{2,}/g, '\n');
 }
+
+// ---------- Festschreibung (GoBD) ----------
+// Eine ausgestellte Rechnung darf nicht mehr verändert werden. Beim Abschließen wird deshalb auch
+// alles eingefroren, was von außen auf die Rechnung wirkt: Firmendaten, Kleinunternehmer-Status, Design.
+// Spätere Änderungen in den Einstellungen gelten nur für neue Rechnungen.
+
+/** Ist die Rechnung abgeschlossen (festgeschrieben)? */
+export const isLocked = (inv) => inv?.status === 'erstellt';
+
+/** Schließt eine Rechnung ab: Status + eingefrorene Kopie der Einstellungen. Gibt eine neue Rechnung zurück. */
+export function finalizeInvoice(inv, settings, { design = null, now = Date.now() } = {}) {
+  if (isLocked(inv)) return inv;
+  const snapshot = structuredClone({ company: settings.company, kleinunternehmer: Boolean(settings.kleinunternehmer), design });
+  return { ...structuredClone(inv), status: 'erstellt', lockedAt: now, snapshot };
+}
+
+/** Einstellungen, mit denen eine Rechnung dargestellt/exportiert wird: eingefroren oder aktuell. */
+export const settingsFor = (inv, current) => (isLocked(inv) && inv.snapshot ? { ...current, ...inv.snapshot } : current);
+
+/** Korrektur einer abgeschlossenen Rechnung: Kopie als neuer Entwurf mit neuer Nummer – das Original bleibt unverändert. */
+export function copyAsDraft(inv, { id, number, date }) {
+  const { snapshot, lockedAt, ...rest } = structuredClone(inv);
+  return { ...rest, id, number, date, status: 'entwurf', dueDate: inv.paymentDays === 'custom' ? '' : rest.dueDate, updatedAt: Date.now() };
+}

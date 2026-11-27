@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="20">
+  <meta name="app-version" content="22">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,7 +27,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=20">
+  <link rel="stylesheet" href="css/style.css?v=22">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -76,6 +76,7 @@
       <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></symbol>
       <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
       <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 16h.01"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
     </defs>
   </svg>
@@ -114,6 +115,14 @@
     <main class="layout" data-view="edit">
       <section class="editor no-print" aria-label="Rechnung bearbeiten">
         <form id="invoice-form" novalidate autocomplete="off">
+          <div class="locked-note" id="locked-note" role="status" data-keep hidden>
+            <span class="locked-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+            <div class="locked-text">
+              <strong>Abgeschlossen – nicht mehr änderbar</strong>
+              <p>Ausgestellte Rechnungen bleiben unverändert (GoBD). Für eine Korrektur legst du eine Kopie mit neuer Nummer an.</p>
+            </div>
+            <button type="button" class="btn btn-secondary" id="locked-copy"><svg class="icon"><use href="#i-copy"/></svg>Als Kopie neu anlegen</button>
+          </div>
 
           <!-- Schritt 1 -->
           <div class="step-panel" data-panel="1">
@@ -228,7 +237,7 @@
             </div>
 
             <h2 class="panel-title mobile-only">Exportieren</h2>
-            <div class="card export mobile-only">
+            <div class="card export mobile-only" data-keep>
               <button type="button" class="export-option" id="export-pdf">
                 <span class="export-icon"><svg class="icon"><use href="#i-download"/></svg></span>
                 <span><strong>PDF speichern</strong><small>Zum Versenden per E-Mail oder zum Ausdrucken.</small></span>
@@ -281,6 +290,18 @@
   </div>
 
   <!-- Rechnungen -->
+  <dialog id="finalize" class="modal" aria-labelledby="finalize-title" aria-describedby="finalize-desc">
+    <form method="dialog" class="modal-body">
+      <span class="modal-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
+      <h2 id="finalize-title">Rechnung abschließen?</h2>
+      <p id="finalize-desc">Danach ist <strong id="finalize-number"></strong> festgeschrieben und kann nicht mehr geändert oder gelöscht werden – so verlangen es die GoBD. Für Korrekturen legst du eine Kopie mit neuer Nummer an.</p>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-secondary" value="cancel">Noch bearbeiten</button>
+        <button type="submit" class="btn btn-primary" id="finalize-confirm" value="confirm"><svg class="icon"><use href="#i-lock"/></svg><span id="finalize-confirm-label">Abschließen & PDF speichern</span></button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="archive" class="drawer" aria-labelledby="archive-title">
     <div class="drawer-head">
       <h2 id="archive-title">Rechnungen</h2>
@@ -420,7 +441,7 @@
   <template id="item-template">
     <article class="item">
       <header class="item-head">
-        <button type="button" class="item-toggle" aria-expanded="true">
+        <button type="button" class="item-toggle" aria-expanded="true" data-keep>
           <svg class="icon"><use href="#i-chevron"/></svg>
           <span class="item-name"></span>
         </button>
@@ -456,6 +477,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=20"></script>
+  <script type="module" src="js/app.js?v=22"></script>
 </body>
 </html>

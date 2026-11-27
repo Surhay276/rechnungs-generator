@@ -143,3 +143,26 @@ test('XRechnung: Summen im XML passen zur Berechnung', () => {
   assert.match(xml, /<cbc:AllowanceTotalAmount currencyID="EUR">/);
   assert.ok(!xml.includes('<script'), 'Eingaben werden escaped');
 });
+
+test('Festschreibung: abgeschlossene Rechnung friert Einstellungen ein', async () => {
+  const { finalizeInvoice, isLocked, settingsFor, copyAsDraft } = await import('../js/invoice.js');
+  const settings = { company: { name: 'Alt GmbH', iban: 'DE89370400440532013000' }, kleinunternehmer: false };
+  const inv = { id: 'a', number: 'RE-2026-0001', status: 'entwurf', items: [{ description: 'x', quantity: '1', unitPrice: '10', taxRate: 19 }] };
+  const done = finalizeInvoice(inv, settings, { design: { color: '#1849A9', head: 'filled' }, now: 1 });
+  assert.ok(isLocked(done));
+  assert.ok(!isLocked(inv), 'Original-Objekt bleibt unberührt');
+  // spätere Änderungen in den Einstellungen wirken nicht auf die abgeschlossene Rechnung
+  settings.company.name = 'Neu GmbH';
+  settings.kleinunternehmer = true;
+  assert.equal(settingsFor(done, settings).company.name, 'Alt GmbH');
+  assert.equal(settingsFor(done, settings).kleinunternehmer, false);
+  assert.equal(settingsFor(inv, settings).company.name, 'Neu GmbH');
+  // erneutes Abschließen ändert nichts
+  assert.equal(finalizeInvoice(done, settings), done);
+  // Korrektur = Kopie mit neuer Nummer als Entwurf, ohne eingefrorene Daten
+  const copy = copyAsDraft(done, { id: 'b', number: 'RE-2026-0002', date: '2026-11-27' });
+  assert.equal(copy.status, 'entwurf');
+  assert.equal(copy.number, 'RE-2026-0002');
+  assert.equal(copy.snapshot, undefined);
+  assert.ok(isLocked(done));
+});
