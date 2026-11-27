@@ -260,7 +260,14 @@ select.input::-ms-expand { display: none; }
 .ac-option strong { font-size: 14px; font-weight: 600; color: var(--text); }
 .ac-option span { font-size: 13px; color: var(--text-3); }
 .ac-option:hover, .ac-option[aria-selected="true"] { background: var(--primary-soft); }
-.ac-note { margin: 0; padding: 6px 12px; font-size: 11px; color: var(--text-3); border-top: 1px solid var(--border); background: var(--surface-2); }
+.ac-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 2px 12px; border-top: 1px solid var(--border); background: var(--surface-2); }
+.ac-note { margin: 0; font-size: 11px; color: var(--text-3); }
+.ac-near { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 0 8px; border: 0; border-radius: var(--radius-sm); background: none; color: var(--primary); font-size: 12px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.ac-near .icon { width: 14px; height: 14px; }
+.ac-near:hover { background: var(--primary-soft); }
+.modal-text { display: flex; flex-direction: column; gap: 10px; font-size: 14px; color: var(--text-2); }
+.modal-text ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.modal-legal { font-size: 12px !important; color: var(--text-3) !important; }
 .ac-note a { color: inherit; }
 .field-warn { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--warning-text); }
 .field-warn-action { min-height: 24px; padding: 0 2px; font-size: 13px; }

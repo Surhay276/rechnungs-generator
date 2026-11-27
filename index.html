@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="23">
+  <meta name="app-version" content="24">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,7 +27,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=23">
+  <link rel="stylesheet" href="css/style.css?v=24">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -78,6 +78,7 @@
       <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 16h.01"/></symbol>
       <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+      <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
     </defs>
   </svg>
 
@@ -142,7 +143,7 @@
               </label>
               <div class="grid-2">
                 <label class="field span-2"><span class="field-label">Name / Firma</span><input class="input" data-field="customer.name"></label>
-                <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-field="customer.street" placeholder="Straße eingeben – Vorschläge erscheinen"></label>
+                <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-field="customer.street" placeholder="z. B. Hauptstraße 5"></label>
                 <label class="field"><span class="field-label">PLZ</span><input class="input" data-field="customer.zip" inputmode="numeric" maxlength="10"></label>
                 <label class="field"><span class="field-label">Ort</span><input class="input" data-field="customer.city"></label>
                 <label class="field span-2"><span class="field-label">E-Mail <span class="optional">nur für die E-Rechnung nötig</span></span><input class="input" data-field="customer.email" type="email" inputmode="email"></label>
@@ -302,6 +303,26 @@
     </form>
   </dialog>
 
+  <dialog id="geo-consent" class="modal" aria-labelledby="geo-title" aria-describedby="geo-desc">
+    <form method="dialog" class="modal-body">
+      <span class="modal-icon" aria-hidden="true"><svg class="icon"><use href="#i-pin"/></svg></span>
+      <h2 id="geo-title">Standort für Adressvorschläge nutzen?</h2>
+      <div id="geo-desc" class="modal-text">
+        <p>Dann erscheinen Straßen in deiner Nähe zuerst. Danach fragt dein Browser einmal nach der Freigabe.</p>
+        <ul>
+          <li>Genutzt wird nur ein auf ca. 1 km gerundeter Punkt.</li>
+          <li>Er wird beim Suchen an den Adressdienst Photon (komoot, OpenStreetMap-Daten) gesendet – nicht gespeichert, nicht an andere weitergegeben.</li>
+          <li>Freiwillig und jederzeit widerrufbar unter <em>Einstellungen → Daten</em>. Ohne Standort sortiert die App nach deinem Firmensitz.</li>
+        </ul>
+        <p class="modal-legal">Rechtsgrundlage: deine Einwilligung (Art. 6 Abs. 1 lit. a DSGVO, § 25 Abs. 1 TDDDG).</p>
+      </div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-secondary" value="cancel">Nicht jetzt</button>
+        <button type="submit" class="btn btn-primary" value="confirm"><svg class="icon"><use href="#i-pin"/></svg>Standort freigeben</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="archive" class="drawer" aria-labelledby="archive-title">
     <div class="drawer-head">
       <h2 id="archive-title">Rechnungen</h2>
@@ -341,7 +362,7 @@
         </div>
         <div class="form-grid">
           <label class="field col-full"><span class="field-label">Name / Firma <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.name" autocomplete="organization" required></label>
-          <label class="field col-full"><span class="field-label">Straße und Hausnummer <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.street" autocomplete="off" required></label>
+          <label class="field col-full"><span class="field-label">Straße und Hausnummer <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.street" autocomplete="off" placeholder="z. B. Musterstraße 12" required></label>
           <label class="field col-zip"><span class="field-label">PLZ <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.zip" inputmode="numeric" maxlength="10" autocomplete="off" required></label>
           <label class="field col-city"><span class="field-label">Ort <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.city" autocomplete="off" required></label>
           <label class="field col-full"><span class="field-label">Ansprechpartner <span class="optional">optional</span></span><input class="input" data-setting="company.contact" autocomplete="name"></label>
@@ -436,6 +457,11 @@
           <span class="switch-track" aria-hidden="true"></span>
           <span><strong>Adressvorschläge</strong><small>Beim Tippen von Straße und PLZ wird nur der Adresstext an OpenStreetMap-Dienste (Photon, OpenPLZ) gesendet.</small></span>
         </label>
+        <label class="switch">
+          <input type="checkbox" role="switch" data-setting="geoBias">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span><strong>Standort für Adressvorschläge</strong><small>Straßen in deiner Nähe zuerst. Mit dem Einschalten willigst du ein: Ein auf ca. 1 km gerundeter Standort wird beim Suchen an Photon gesendet, aber nie gespeichert. Ausschalten widerruft die Einwilligung.</small></span>
+        </label>
         <div class="data-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="load-demo">Beispieldaten ansehen</button>
           <button type="button" class="btn btn-ghost btn-sm danger-text" id="reset-all">Alles löschen</button>
@@ -482,6 +508,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=23"></script>
+  <script type="module" src="js/app.js?v=24"></script>
 </body>
 </html>
