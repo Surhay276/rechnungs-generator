@@ -2,7 +2,9 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="25">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self' https://photon.komoot.io https://openplzapi.org; object-src 'none'; base-uri 'self'; form-action 'self'; worker-src 'none'">
+  <meta name="referrer" content="no-referrer">
+  <meta name="app-version" content="26">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,31 +29,8 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=25">
-  <script>
-    // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
-    document.documentElement.dataset.theme = 'light';
-    try { if (localStorage.getItem('rechnungen:theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch { /* ignorieren */ }
-  </script>
-  <script>
-    // Immer die aktuelle Version zeigen: GitHub Pages erlaubt keine eigenen Cache-Regeln, und manche
-    // Browser (z. B. In-App-Browser) halten alte Seiten lange vor. Daher: aktuelle Versionsnummer am
-    // Cache vorbei abfragen und bei Abweichung die Seite einmal frisch laden.
-    (() => {
-      const current = document.querySelector('meta[name="app-version"]')?.content;
-      const key = `fresh:${location.pathname}`;
-      fetch(`version.json?t=${Date.now()}`, { cache: 'no-store' })
-        .then((r) => (r.ok ? r.json() : null))
-        .then((data) => {
-          const latest = data && String(data.version);
-          if (!latest || latest === current) { try { sessionStorage.removeItem(key); } catch { /* egal */ } return; }
-          try { if (sessionStorage.getItem(key) === latest) return; sessionStorage.setItem(key, latest); } catch { return; }
-          // Seite im Browser-Cache durch die neue ersetzen, dann neu laden
-          return fetch(location.href, { cache: 'reload' }).finally(() => location.reload());
-        })
-        .catch(() => { /* offline → einfach die vorhandene Version zeigen */ });
-    })();
-  </script>
+  <link rel="stylesheet" href="css/style.css?v=26">
+  <script src="js/boot.js?v=26"></script>
 </head>
 <body>
   <svg width="0" height="0" class="sprite" aria-hidden="true">
@@ -78,6 +57,8 @@
       <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4.5M12 16h.01"/></symbol>
       <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
       <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+      <symbol id="i-undo" viewBox="0 0 24 24"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
       <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-7-6.1-7-11.5a7 7 0 0 1 14 0C19 14.9 12 21 12 21Z"/><circle cx="12" cy="9.5" r="2.5"/></symbol>
     </defs>
   </svg>
@@ -120,9 +101,12 @@
             <span class="locked-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
             <div class="locked-text">
               <strong>Abgeschlossen – nicht mehr änderbar</strong>
-              <p>Ausgestellte Rechnungen bleiben unverändert (GoBD). Für eine Korrektur legst du eine Kopie mit neuer Nummer an.</p>
+              <p>Ausgestellte Rechnungen dürfen nicht mehr verändert werden. Für eine Korrektur legst du eine Stornorechnung oder eine Kopie mit neuer Nummer an.</p>
             </div>
-            <button type="button" class="btn btn-secondary" id="locked-copy"><svg class="icon"><use href="#i-copy"/></svg>Als Kopie neu anlegen</button>
+            <div class="locked-actions">
+              <button type="button" class="btn btn-secondary" id="locked-storno"><svg class="icon"><use href="#i-undo"/></svg>Stornieren</button>
+              <button type="button" class="btn btn-secondary" id="locked-copy"><svg class="icon"><use href="#i-copy"/></svg>Als Kopie neu anlegen</button>
+            </div>
           </div>
 
           <!-- Schritt 1 -->
@@ -146,11 +130,18 @@
                 <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-field="customer.street" placeholder="z. B. Hauptstraße 5"></label>
                 <label class="field"><span class="field-label">PLZ</span><input class="input" data-field="customer.zip" inputmode="numeric" maxlength="10"></label>
                 <label class="field"><span class="field-label">Ort</span><input class="input" data-field="customer.city"></label>
+                <label class="field span-2"><span class="field-label">Land</span><select class="input" data-field="customer.country" id="customer-country"></select></label>
                 <label class="field span-2"><span class="field-label">E-Mail <span class="optional">nur für die E-Rechnung nötig</span></span><input class="input" data-field="customer.email" type="email" inputmode="email"></label>
               </div>
-              <details class="more">
+              <details class="more" id="customer-more">
                 <summary>Weitere Angaben</summary>
-                <label class="field"><span class="field-label">Käuferreferenz / Leitweg-ID <span class="optional">optional</span></span><input class="input mono" data-field="customer.reference" placeholder="z. B. 04011000-12345-34"></label>
+                <label class="field"><span class="field-label">USt-IdNr. des Kunden <span class="optional">nötig bei Reverse-Charge und EU-Lieferungen</span></span><input class="input mono" data-field="customer.vatId" placeholder="z. B. ATU12345678" autocapitalize="characters" spellcheck="false"></label>
+                <label class="field"><span class="field-label">Käuferreferenz / Leitweg-ID <span class="optional">optional</span></span><input class="input mono" data-field="customer.reference" placeholder="z. B. 04011000-1234512345-06"></label>
+                <label class="switch">
+                  <input type="checkbox" role="switch" data-field="customer.isPublic">
+                  <span class="switch-track" aria-hidden="true"></span>
+                  <span><strong>Öffentlicher Auftraggeber</strong><small>Behörden verlangen eine E-Rechnung mit Leitweg-ID.</small></span>
+                </label>
               </details>
               <label class="switch">
                 <input type="checkbox" role="switch" id="save-customer">
@@ -161,11 +152,23 @@
 
             <h2 class="panel-title">Rechnungsdetails</h2>
             <div class="card">
+              <label class="field"><span class="field-label">Dokumentart</span>
+                <select class="input" data-field="kind" id="kind-select">
+                  <option value="invoice">Rechnung</option>
+                  <option value="partial">Abschlagsrechnung</option>
+                  <option value="final">Schlussrechnung</option>
+                  <option value="storno">Stornorechnung / Korrektur</option>
+                </select>
+              </label>
+              <div class="grid-2" id="reference-fields" hidden>
+                <label class="field"><span class="field-label">Storniert Rechnung Nr.</span><input class="input mono" data-field="reference.number"></label>
+                <label class="field"><span class="field-label">vom</span><input class="input" data-field="reference.date" type="date"></label>
+              </div>
               <div class="grid-2">
                 <label class="field"><span class="field-label">Rechnungsnummer</span><input class="input mono" data-field="number"><span class="field-hint">Wird automatisch hochgezählt.</span></label>
                 <label class="field"><span class="field-label">Ausstellungsdatum</span><input class="input" data-field="date" type="date"></label>
               </div>
-              <fieldset class="field">
+              <fieldset class="field" id="payment-terms">
                 <legend class="field-label">Zahlungsfrist</legend>
                 <div class="chips" id="payment-chips" role="radiogroup" aria-label="Zahlungsfrist">
                   <button type="button" class="chip" role="radio" data-days="0">Sofort</button>
@@ -180,21 +183,45 @@
                 <span class="field-hint" id="due-hint"></span>
               </fieldset>
               <fieldset class="field">
-                <legend class="field-label">Leistungszeitraum <span class="optional">optional</span></legend>
-                <div class="grid-2">
-                  <label class="field"><span class="field-hint">Anfang</span><input class="input" data-field="serviceFrom" type="date"></label>
-                  <label class="field"><span class="field-hint">Ende</span><input class="input" data-field="serviceTo" type="date"></label>
+                <legend class="field-label">Leistungsdatum</legend>
+                <div class="chips" id="service-chips" role="radiogroup" aria-label="Leistungsdatum">
+                  <button type="button" class="chip" role="radio" data-service="same">Wie Rechnungsdatum</button>
+                  <button type="button" class="chip" role="radio" data-service="date">Anderer Tag</button>
+                  <button type="button" class="chip" role="radio" data-service="period">Zeitraum</button>
                 </div>
-                <span class="field-hint">Leer lassen, wenn die Leistung am Rechnungsdatum erbracht wurde.</span>
+                <div class="grid-2" id="service-fields">
+                  <label class="field" id="service-from"><span class="field-hint" id="service-from-label">Anfang</span><input class="input" data-field="serviceFrom" type="date"></label>
+                  <label class="field" id="service-to"><span class="field-hint">Ende</span><input class="input" data-field="serviceTo" type="date"></label>
+                </div>
+                <span class="field-hint">Pflichtangabe nach § 14 UStG: wann die Leistung erbracht oder geliefert wurde.</span>
               </fieldset>
+              <details class="more" id="currency-more">
+                <summary>Währung</summary>
+                <div class="grid-2">
+                  <label class="field"><span class="field-label">Währung</span><select class="input" data-field="currency" id="currency-select"></select></label>
+                  <label class="field" id="fx-field" hidden><span class="field-label" id="fx-label">Kurs in EUR</span><input class="input mono" data-field="fxRate" inputmode="decimal" placeholder="z. B. 0,9234"></label>
+                </div>
+                <span class="field-hint">Bei Fremdwährung wird die Umsatzsteuer zusätzlich in Euro ausgewiesen (§ 16 Abs. 6 UStG).</span>
+              </details>
             </div>
           </div>
 
           <!-- Schritt 2 -->
           <div class="step-panel" data-panel="2" hidden>
             <h2 class="panel-title">Leistungen</h2>
+            <div class="price-mode">
+              <span class="field-label" id="price-mode-label">Preise eingeben als</span>
+              <div class="chips" id="price-chips" role="radiogroup" aria-labelledby="price-mode-label">
+                <button type="button" class="chip" role="radio" data-gross="false">Netto</button>
+                <button type="button" class="chip" role="radio" data-gross="true">Brutto (inkl. USt)</button>
+              </div>
+            </div>
             <div id="items" class="items"></div>
             <button type="button" class="btn btn-secondary btn-block" id="add-item"><svg class="icon"><use href="#i-plus"/></svg>Leistung hinzufügen</button>
+
+            <div class="card" id="exemption-card" hidden>
+              <label class="field"><span class="field-label">Grund der Steuerbefreiung</span><textarea class="input" data-field="exemptionReason" rows="2" placeholder="z. B. Steuerfreie Heilbehandlung nach § 4 Nr. 14 UStG"></textarea><span class="field-hint">Pflichtangabe für steuerfreie Leistungen (§ 14 Abs. 4 Nr. 8 UStG).</span></label>
+            </div>
 
             <h2 class="panel-title">Rabatt auf Gesamtbetrag</h2>
             <div class="card">
@@ -230,10 +257,27 @@
               </div>
             </div>
 
+            <div id="prepayments-section" hidden>
+              <h2 class="panel-title">Bereits gezahlte Abschläge</h2>
+              <div class="card">
+                <div id="prepayments" class="prepayments"></div>
+                <div class="prepayment-actions">
+                  <select class="input" id="prepayment-pick" aria-label="Abschlagsrechnung übernehmen"></select>
+                  <button type="button" class="btn btn-secondary btn-sm" id="add-prepayment"><svg class="icon"><use href="#i-plus"/></svg>Manuell hinzufügen</button>
+                </div>
+                <span class="field-hint">Werden mit Betrag und enthaltener Umsatzsteuer vom Rechnungsbetrag abgezogen (§ 14 Abs. 5 UStG).</span>
+              </div>
+            </div>
+
             <h2 class="panel-title">Texte</h2>
             <div class="card">
               <label class="field"><span class="field-label">Kopfzeile</span><textarea class="input" data-field="intro" rows="3" placeholder="Sehr geehrte Damen und Herren, …"></textarea><span class="field-hint">Steht vor den Leistungen.</span></label>
               <label class="field"><span class="field-label">Anmerkungen</span><textarea class="input" data-field="note" rows="4" placeholder="Vielen Dank für Ihren Auftrag!"></textarea><span class="field-hint">Steht nach dem Zahlungshinweis – z. B. Dank und Grußformel.</span></label>
+              <label class="switch">
+                <input type="checkbox" role="switch" data-field="retentionNotice">
+                <span class="switch-track" aria-hidden="true"></span>
+                <span><strong>Hinweis auf Aufbewahrungspflicht</strong><small>Pflicht bei Bau- und Grundstücksleistungen an Privatkunden (§ 14b UStG).</small></span>
+              </label>
               <button type="button" class="btn btn-ghost btn-sm" id="save-defaults"><svg class="icon"><use href="#i-check"/></svg>Für neue Rechnungen merken</button>
             </div>
 
@@ -241,11 +285,11 @@
             <div class="card export mobile-only" data-keep>
               <button type="button" class="export-option" id="export-pdf">
                 <span class="export-icon"><svg class="icon"><use href="#i-download"/></svg></span>
-                <span><strong>PDF exportieren</strong><small>Wird sofort gespeichert und geöffnet – zum Versenden oder Ausdrucken.</small></span>
+                <span><strong>PDF exportieren</strong><small>PDF/A mit eingebetteter E-Rechnung (ZUGFeRD) – zum Versenden, Ausdrucken und Archivieren.</small></span>
               </button>
               <button type="button" class="export-option" id="export-xml">
                 <span class="export-icon"><svg class="icon"><use href="#i-code"/></svg></span>
-                <span><strong>E-Rechnung (XRechnung)</strong><small>XML-Datei nach EN 16931 – für Behörden und Buchhaltungssoftware.</small></span>
+                <span><strong>E-Rechnung (XRechnung)</strong><small>XML-Datei nach EN 16931 – für Behörden und Rechnungsportale.</small></span>
               </button>
             </div>
           </div>
@@ -295,10 +339,22 @@
     <form method="dialog" class="modal-body">
       <span class="modal-icon" aria-hidden="true"><svg class="icon"><use href="#i-lock"/></svg></span>
       <h2 id="finalize-title">Rechnung abschließen?</h2>
-      <p id="finalize-desc">Danach ist <strong id="finalize-number"></strong> festgeschrieben und kann nicht mehr geändert oder gelöscht werden – so verlangen es die GoBD. Für Korrekturen legst du eine Kopie mit neuer Nummer an.</p>
+      <p id="finalize-desc">Danach ist <strong id="finalize-number"></strong> festgeschrieben und kann nicht mehr geändert oder gelöscht werden. PDF und E-Rechnung werden dabei als Original in diesem Browser abgelegt. Korrekturen laufen über eine Stornorechnung.</p>
       <div class="modal-actions">
         <button type="submit" class="btn btn-secondary" value="cancel">Noch bearbeiten</button>
         <button type="submit" class="btn btn-primary" id="finalize-confirm" value="confirm"><svg class="icon"><use href="#i-lock"/></svg><span id="finalize-confirm-label">Abschließen & PDF exportieren</span></button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm" class="modal" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <form method="dialog" class="modal-body">
+      <span class="modal-icon" aria-hidden="true"><svg class="icon"><use href="#i-alert"/></svg></span>
+      <h2 id="confirm-title"></h2>
+      <div id="confirm-text" class="modal-text"></div>
+      <div class="modal-actions">
+        <button type="submit" class="btn btn-secondary" value="cancel" id="confirm-cancel">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" value="confirm" id="confirm-ok"></button>
       </div>
     </form>
   </dialog>
@@ -370,6 +426,16 @@
           <label class="field col-zip"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
         </div>
         <p class="field-hint">E-Mail und Telefon werden für die E-Rechnung benötigt.</p>
+        <details class="more" id="legal-more">
+          <summary>Rechtsform &amp; Handelsregister</summary>
+          <div class="form-grid">
+            <label class="field col-full"><span class="field-label">Rechtsform</span><select class="input" data-setting="company.legalForm" id="legal-form"></select></label>
+            <label class="field col-half" data-legal="register"><span class="field-label">Registergericht</span><input class="input" data-setting="company.registerCourt" placeholder="z. B. Amtsgericht Charlottenburg"></label>
+            <label class="field col-half" data-legal="register"><span class="field-label">Registernummer</span><input class="input mono" data-setting="company.registerNumber" placeholder="z. B. HRB 123456 B"></label>
+            <label class="field col-full" data-legal="officers"><span class="field-label" id="officers-label">Geschäftsführer</span><input class="input" data-setting="company.officers" placeholder="Vor- und Nachname, mehrere mit Komma"></label>
+          </div>
+          <p class="field-hint">Kapital- und Handelsgesellschaften müssen diese Angaben auf jeder Rechnung nennen (§ 35a GmbHG, § 37a HGB, § 80 AktG).</p>
+        </details>
       </section>
 
       <section class="settings-card" aria-labelledby="set-design">
@@ -430,7 +496,7 @@
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="kleinunternehmer">
           <span class="switch-track" aria-hidden="true"></span>
-          <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – auf der Rechnung wird keine Umsatzsteuer ausgewiesen.</small></span>
+          <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – auf der Rechnung wird keine Umsatzsteuer ausgewiesen. Seit 2025: Umsatz im Vorjahr höchstens 25.000 € und im laufenden Jahr höchstens 100.000 €. Für Kleinunternehmer gilt keine Pflicht, E-Rechnungen auszustellen.</small></span>
         </label>
       </section>
 
@@ -444,6 +510,24 @@
         <p class="field-hint">Für den Zahlungshinweis, den GiroCode und die E-Rechnung.</p>
       </section>
 
+      <section class="settings-card" aria-labelledby="set-numbers">
+        <header class="settings-card-head"><h3 id="set-numbers">Rechnungsnummern</h3></header>
+        <div class="form-grid">
+          <label class="field col-city"><span class="field-label">Format</span><input class="input mono" data-setting="numberFormat.pattern" spellcheck="false" placeholder="RE-{JJJJ}-{NR}"></label>
+          <label class="field col-zip"><span class="field-label">Stellen</span><select class="input" data-setting="numberFormat.digits"><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
+        </div>
+        <p class="field-hint">Platzhalter: {JJJJ} Jahr, {JJ} Jahr zweistellig, {MM} Monat, {NR} laufende Nummer. Mit Jahr im Format beginnt die Zählung jedes Jahr neu. Nächste Nummer: <strong class="mono" id="number-preview"></strong></p>
+      </section>
+
+      <section class="settings-card" aria-labelledby="set-export">
+        <header class="settings-card-head"><h3 id="set-export">Export</h3></header>
+        <label class="switch">
+          <input type="checkbox" role="switch" data-setting="zugferd">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span><strong>E-Rechnung ins PDF einbetten (ZUGFeRD)</strong><small>Das PDF wird als PDF/A-3 mit eingebetteter XML (Factur-X/ZUGFeRD, Profil EN 16931) erzeugt – Pflichtformat für Rechnungen an Unternehmen ab 2027/2028.</small></span>
+        </label>
+      </section>
+
       <section class="settings-card" aria-labelledby="set-customers">
         <header class="settings-card-head"><h3 id="set-customers">Gespeicherte Kunden</h3></header>
         <ul id="customer-list" class="customer-list"></ul>
@@ -451,7 +535,13 @@
 
       <section class="settings-card" aria-labelledby="set-data">
         <header class="settings-card-head"><h3 id="set-data">Daten</h3></header>
-        <p class="field-hint">Alle Daten liegen nur in diesem Browser auf diesem Gerät.</p>
+        <p class="field-hint">Alle Daten liegen nur in diesem Browser auf diesem Gerät. Lade regelmäßig eine Sicherung herunter. Abgeschlossene Rechnungen musst du 8 Jahre aufbewahren – lege die PDFs zusätzlich in deiner Buchhaltung ab.</p>
+        <div class="data-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="backup-export"><svg class="icon"><use href="#i-download"/></svg>Sicherung herunterladen</button>
+          <label class="btn btn-secondary btn-sm" for="backup-input" tabindex="0"><svg class="icon"><use href="#i-upload"/></svg>Sicherung einspielen</label>
+          <input type="file" id="backup-input" accept="application/json,.json" hidden>
+        </div>
+        <p class="field-hint" id="backup-status"></p>
         <label class="switch">
           <input type="checkbox" role="switch" data-setting="addressLookup">
           <span class="switch-track" aria-hidden="true"></span>
@@ -464,7 +554,7 @@
         </label>
         <div class="data-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="load-demo">Beispieldaten ansehen</button>
-          <button type="button" class="btn btn-ghost btn-sm danger-text" id="reset-all">Alles löschen</button>
+          <button type="button" class="btn btn-ghost btn-sm danger-text" id="reset-all">Daten löschen …</button>
         </div>
       </section>
   </dialog>
@@ -489,11 +579,8 @@
               <select class="input" data-key="unit" aria-label="Einheit"></select>
             </div>
           </div>
-          <label class="field"><span class="field-label">USt</span>
-            <select class="input" data-key="taxRate"><option value="19">19 %</option><option value="7">7 %</option><option value="0">0 %</option></select>
-          </label>
-          <label class="field"><span class="field-label">Preis pro Einheit (netto)</span><input class="input mono" data-key="unitPrice" inputmode="decimal" placeholder="0,00"></label>
-          <label class="field"><span class="field-label">Preis pro Einheit (brutto)</span><input class="input mono" data-key="grossPrice" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field"><span class="field-label">Preis pro Einheit <span class="price-basis">(netto)</span></span><input class="input mono" data-key="unitPrice" inputmode="decimal" placeholder="0,00"></label>
+          <label class="field span-2"><span class="field-label">Umsatzsteuer</span><select class="input" data-key="taxType"></select></label>
         </div>
         <div class="item-discount" hidden>
           <span class="field-label">Rabatt auf diese Leistung</span>
@@ -508,6 +595,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=25"></script>
+  <script type="module" src="js/app.js?v=26"></script>
 </body>
 </html>

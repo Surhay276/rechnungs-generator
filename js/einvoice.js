@@ -5,12 +5,12 @@
  * - XRechnung 3.0 (profile „xrechnung“) – als eigene XML-Datei, z. B. für Behörden
  * - ZUGFeRD 2 / Factur-X, Profil EN 16931 (profile „en16931“) – eingebettet ins PDF/A-3
  */
-import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=25';
-import { invoiceTotals, skontoInfo } from './calc.js?v=25';
-import { dueDate, servicePeriod, formatDate } from './dates.js?v=25';
-import { kindOf, KLEINUNTERNEHMER_HINWEIS, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=25';
-import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=25';
-import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=25';
+import { centsToDecimal, formatQuantity, toQuantityUnits, toPriceUnits, parseScaled, roundDiv, scaledToString, QUANTITY_SCALE } from './money.js?v=26';
+import { invoiceTotals, skontoInfo } from './calc.js?v=26';
+import { dueDate, servicePeriod, formatDate } from './dates.js?v=26';
+import { kindOf, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, TAX_TYPES, LEGAL_FORMS } from './tax.js?v=26';
+import { cleanIBAN, cleanVatId, isValidIBAN } from './checks.js?v=26';
+import { validateXRechnungFields, validateInvoiceFields } from './validate.js?v=26';
 
 export const PROFILES = Object.freeze({
   xrechnung: {
@@ -99,7 +99,7 @@ export function toCII(inv, settings, { profile = 'xrechnung', context = {} } = {
   const notes = [
     ku && KLEINUNTERNEHMER_HINWEIS,
     kind.key === 'final' && inv.prepayments?.length && `Abschlagsrechnungen: ${inv.prepayments.map((x) => `${x.number} vom ${formatDate(x.date)}`).join(', ')}`,
-    inv.retentionNotice && 'Sie sind gesetzlich verpflichtet, diese Rechnung zwei Jahre aufzubewahren (§ 14b Abs. 1 Satz 5 UStG).',
+    inv.retentionNotice && RETENTION_NOTICE,
   ].filter(Boolean).map((text) => `<ram:IncludedNote><ram:Content>${esc(text)}</ram:Content></ram:IncludedNote>`).join('');
 
   // ---------- Positionen ----------

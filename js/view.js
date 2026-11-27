@@ -5,9 +5,9 @@
  */
 import {
   toPriceUnits, toQuantityUnits, toCents, formatMoney, formatPrice, formatQuantity, unitLabel, dueDate, servicePeriod, skontoInfo,
-  isValidIBAN, epcPayload, formatAddress, formatIBAN, formatDate, kindOf, legalInfo, taxInEUR, KLEINUNTERNEHMER_HINWEIS, LEGAL_FORMS,
-} from './invoice.js?v=25';
-import { invoiceTheme } from './color.js?v=25';
+  isValidIBAN, epcPayload, formatAddress, formatIBAN, formatDate, kindOf, legalInfo, taxInEUR, KLEINUNTERNEHMER_HINWEIS, RETENTION_NOTICE, LEGAL_FORMS,
+} from './invoice.js?v=26';
+import { invoiceTheme } from './color.js?v=26';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
 
@@ -15,7 +15,6 @@ qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
 export { formatDate };
 const decimal = (value) => String(value).replace('.', ',');
-export const RETENTION_NOTICE = 'Sie sind gesetzlich verpflichtet, diese Rechnung zwei Jahre aufzubewahren (§ 14b Abs. 1 Satz 5 UStG).';
 
 /** QR-Code als Raster (true = dunkles Modul). */
 export function qrModules(payload) {

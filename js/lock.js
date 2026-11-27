@@ -5,7 +5,7 @@
  * Kleinunternehmer-Status, Design. Spätere Änderungen in den Einstellungen gelten nur für neue Rechnungen.
  * Korrekturen laufen über eine neue Rechnung (Kopie oder Stornorechnung) mit eigener Nummer.
  */
-import { formatDate } from './dates.js?v=25';
+import { formatDate } from './dates.js?v=26';
 
 /** Ist die Rechnung abgeschlossen (festgeschrieben)? */
 export const isLocked = (inv) => inv?.status === 'erstellt';

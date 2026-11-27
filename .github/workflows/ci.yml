@@ -88,9 +88,9 @@ jobs:
       - name: ZUGFeRD-PDFs erzeugen
         run: node scripts/xrechnung-samples.mjs zugferd-out --pdf
 
-      - name: PDF/A-3b mit veraPDF prüfen
+      - name: PDF/A-3b mit veraPDF prüfen (Image per Prüfsumme gesichert)
         run: |
-          docker run --rm -v "$PWD/zugferd-out/zugferd:/data" verapdf/cli:latest --flavour 3b --format text /data/ | tee verapdf.txt
+          docker run --rm -v "$PWD/zugferd-out/zugferd:/data" verapdf/cli@sha256:3252b49319482369382ab44bcc661d5f7ac6f14d0d5d84a62df2d89b936c28c0 --flavour 3b --format text /data/ | tee verapdf.txt
           node scripts/check-verapdf.mjs verapdf.txt "$(ls zugferd-out/zugferd/*.pdf | wc -l)"
 
       - name: Prüfergebnis aufbewahren

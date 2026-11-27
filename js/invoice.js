@@ -13,18 +13,18 @@
  *   girocode.js   GiroCode (EPC-QR)
  *   lock.js       Festschreibung, Kopie, Stornorechnung
  */
-import { countryName } from './tax.js?v=25';
+import { countryName } from './tax.js?v=26';
 
-export * from './money.js?v=25';
-export * from './tax.js?v=25';
-export * from './calc.js?v=25';
-export * from './dates.js?v=25';
-export * from './numbering.js?v=25';
-export * from './checks.js?v=25';
-export * from './validate.js?v=25';
-export * from './einvoice.js?v=25';
-export * from './girocode.js?v=25';
-export * from './lock.js?v=25';
+export * from './money.js?v=26';
+export * from './tax.js?v=26';
+export * from './calc.js?v=26';
+export * from './dates.js?v=26';
+export * from './numbering.js?v=26';
+export * from './checks.js?v=26';
+export * from './validate.js?v=26';
+export * from './einvoice.js?v=26';
+export * from './girocode.js?v=26';
+export * from './lock.js?v=26';
 
 /** Einheiten mit UN/ECE-Codes (Rec. 20) – nötig für die E-Rechnung. */
 export const UNITS = Object.freeze([

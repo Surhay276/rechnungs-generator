@@ -6,6 +6,8 @@
  */
 
 export const KLEINUNTERNEHMER_HINWEIS = 'Gemäß § 19 UStG wird keine Umsatzsteuer berechnet.';
+/** Pflichthinweis bei Bau- und Grundstücksleistungen an Privatkunden. */
+export const RETENTION_NOTICE = 'Sie sind gesetzlich verpflichtet, diese Rechnung zwei Jahre aufzubewahren (§ 14b Abs. 1 Satz 5 UStG).';
 
 /**
  * category: Steuerkategorie der E-Rechnung · rate: Satz in % · note: Pflichthinweis auf der Rechnung
