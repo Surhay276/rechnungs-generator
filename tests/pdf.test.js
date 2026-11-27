@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
-import { calculateTotals } from '../js/invoice.js';
+import { calculateTotals, invoiceTotals, toCII } from '../js/invoice.js';
 import { buildInvoiceView, pdfFileName } from '../js/view.js';
 import { createInvoicePdf } from '../js/invoice-pdf.js';
 import { parseFont, wrapText, Font } from '../js/pdf.js';
@@ -15,8 +15,7 @@ async function render(mutate = () => {}) {
   const settings = sampleSettings();
   const inv = sampleInvoice();
   mutate(inv, settings);
-  const totals = calculateTotals(inv.items, { discount: inv.discount, kleinunternehmer: settings.kleinunternehmer });
-  const view = buildInvoiceView(inv, settings, totals, { color: '#1D2939', head: 'filled' });
+  const view = buildInvoiceView(inv, settings, invoiceTotals(inv, settings), { color: '#1D2939', head: 'filled' });
   const bytes = await createInvoicePdf(view, { fonts, date: new Date(2026, 10, 27) });
   return { view, pdf: Buffer.from(bytes).toString('latin1'), bytes };
 }
@@ -96,4 +95,51 @@ test('Dateiname des PDFs: nur unproblematische Zeichen', () => {
   assert.equal(pdfFileName({ number: 'RE-2026-0001', customer: { name: 'Bäckerei Öz & Şahin GmbH' } }), 'RE-2026-0001 Baeckerei Oez & Sahin GmbH');
   assert.equal(pdfFileName({ number: 'RE-1', customer: { name: 'A/B: "C"' } }), 'RE-1 A-B- -C-');
   assert.equal(pdfFileName({ number: '', customer: { name: '' } }), 'Rechnung');
+});
+
+const icc = readFileSync(new URL('../assets/sRGB.icc', import.meta.url));
+
+test('ZUGFeRD: PDF/A-3 mit eingebetteter E-Rechnung und passenden Metadaten', async () => {
+  const settings = sampleSettings();
+  const inv = sampleInvoice();
+  const xml = toCII(inv, settings, { profile: 'en16931', context: { today: '2026-11-27' } });
+  const view = buildInvoiceView(inv, settings, invoiceTotals(inv, settings), { color: '#1D2939', head: 'filled' });
+  const bytes = await createInvoicePdf(view, { fonts, date: new Date(Date.UTC(2026, 10, 27, 12)), iccProfile: icc, einvoice: { xml, conformance: 'EN 16931' } });
+  const pdf = Buffer.from(bytes).toString('latin1');
+  assert.match(pdf, /\/OutputIntents \[\d+ 0 R\]/);
+  assert.match(pdf, /\/S \/GTS_PDFA1/);
+  assert.match(pdf, /\/AFRelationship \/Alternative/);
+  assert.match(pdf, /\/EmbeddedFiles << \/Names \[\(factur-x\.xml\) \d+ 0 R\]/);
+  assert.match(pdf, /\/AF \[\d+ 0 R\]/);
+  assert.match(pdf, /\/Subtype \/text#2Fxml/);
+  assert.match(pdf, /\/ID \[<[0-9A-F]{32}> <[0-9A-F]{32}>\]/);
+  // XMP liegt unkomprimiert vor und spiegelt das Info-Verzeichnis
+  assert.match(pdf, /<pdfaid:part>3<\/pdfaid:part><pdfaid:conformance>B<\/pdfaid:conformance>/);
+  assert.match(pdf, /<fx:DocumentFileName>factur-x\.xml<\/fx:DocumentFileName>/);
+  assert.match(pdf, /<fx:ConformanceLevel>EN 16931<\/fx:ConformanceLevel>/);
+  assert.match(pdf, /<xmp:CreateDate>2026-11-27T12:00:00\+00:00<\/xmp:CreateDate>/);
+  assert.match(pdf, /\/CreationDate \(D:20261127120000\+00'00'\)/);
+  // Die eingebettete XML ist exakt die erzeugte E-Rechnung
+  const ef = /\/Type \/EmbeddedFile [^]*?\/Length (\d+) >>\nstream\n/.exec(pdf);
+  const start = ef.index + ef[0].length;
+  const embedded = inflateSync(Buffer.from(pdf.slice(start, start + Number(ef[1])), 'latin1')).toString('utf8');
+  assert.equal(embedded, xml);
+});
+
+test('PDF: Stornorechnung zeigt Titel, Verweis und negative Beträge', async () => {
+  const { pdf, view } = await render((inv) => { Object.assign(inv, { kind: 'storno', number: 'RE-2026-0002', reference: { number: 'RE-2026-0001', date: '2026-11-01' }, skonto: { enabled: false } }); });
+  assert.equal(view.title, 'Stornorechnung');
+  const text = extractText(pdf);
+  for (const s of ['Stornorechnung', 'Zu Rechnung', 'RE-2026-0001 vom 01.11.2026', '-1.495,99']) assert.ok(text.includes(s), `„${s}“ fehlt`);
+});
+
+test('PDF: Steuerhinweise erscheinen auf der Rechnung (§ 14a UStG)', async () => {
+  const { pdf } = await render((inv, s) => {
+    s.company.vatId = 'DE136695976';
+    inv.items.forEach((i) => { i.taxType = 'AE'; });
+    inv.customer.vatId = 'DE136695976';
+  });
+  const text = extractText(pdf);
+  assert.ok(text.includes('Steuerschuldnerschaft des Leistungsempfängers'));
+  assert.ok(text.includes('Ihre USt-IdNr.'));
 });

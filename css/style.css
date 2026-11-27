@@ -591,7 +591,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 [data-theme="dark"] .toast { background: #F4F4F5; color: #101828; }
 .toast.show { translate: -50% 0; opacity: 1; }
 .toast-action { flex: none; border: 0; background: none; color: #5FE9D0; font-weight: 600; min-height: 32px; padding: 0 6px; border-radius: var(--radius-sm); cursor: pointer; }
-[data-theme="dark"] .toast-action { color: #0E9384; }
+[data-theme="dark"] .toast-action { color: #107569; } /* 4,9 : 1 auf dem hellen Toast (WCAG AA) */
 .sumbar { display: none; }
 .footer { text-align: center; color: var(--text-3); font-size: 13px; padding: 24px; }
 
@@ -729,4 +729,28 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 /* Wer reduzierte Bewegung eingestellt hat, bekommt keine Animationen */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Ergänzungen: Warnungen, Preisart, Abschläge, Leistungsdatum ---------- */
+.field-warning { display: flex; gap: 6px; align-items: flex-start; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--warning-text); }
+.field-warning::before {
+  content: "!"; flex: none; display: grid; place-items: center; width: 16px; height: 16px; margin-top: 1px; border-radius: 50%;
+  font-size: 11px; font-weight: 700; color: #fff; background: var(--warning-text);
+}
+.input.has-warning { border-color: color-mix(in srgb, var(--warning-text) 55%, transparent); }
+.price-mode { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin-bottom: 12px; }
+.price-basis { font-weight: 400; color: var(--text-3); }
+#service-chips, #price-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.prepayments { display: flex; flex-direction: column; gap: 12px; }
+.prepayments:empty { display: none; }
+.prepayment { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr auto; gap: 8px; align-items: end; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.prepayment .field { min-width: 0; }
+.prepayment-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.prepayment-actions .input { flex: 1 1 220px; width: auto; }
+.locked-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.inv-tax-notes { display: flex; flex-direction: column; gap: 1.5mm; }
+.badge-storno { background: var(--error-soft); color: var(--error-text); }
+@media (max-width: 720px) {
+  .prepayment { grid-template-columns: 1fr 1fr; }
+  .prepayment > .icon-btn { justify-self: end; }
 }
