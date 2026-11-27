@@ -3,11 +3,11 @@ import {
   isValidIBAN, formatIBAN, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung,
   isLocked, finalizeInvoice, settingsFor, copyAsDraft,
-} from './invoice.js?v=23';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=23';
-import { buildInvoiceView, formatDate } from './view.js?v=23';
-import { attachAddressLookup } from './address.js?v=23';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=23';
+} from './invoice.js?v=24';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=24';
+import { buildInvoiceView, formatDate } from './view.js?v=24';
+import { attachAddressLookup, locatePlace } from './address.js?v=24';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=24';
 
 const STORAGE_KEY = 'rechnungen:v3';
 const THEME_KEY = 'rechnungen:theme';
@@ -115,6 +115,7 @@ let store = normalize(load());
 /** Ergänzt Einstellungen, die ältere Speicherstände noch nicht kennen. */
 function normalize(s) {
   s.settings.addressLookup ??= true;
+  s.settings.geoBias ??= false; // Standort nur nach ausdrücklicher Einwilligung
   return s;
 }
 if (!store.invoices.some((i) => i.id === store.currentId)) store.currentId = store.invoices[0].id;
@@ -240,19 +241,99 @@ form.addEventListener('input', (e) => {
   update();
 });
 
-// Adressvorschläge (Straße → PLZ + Ort, PLZ → Ort) – abschaltbar in den Einstellungen
+// ---------- Adressvorschläge (Straße → PLZ + Ort, PLZ → Ort) – abschaltbar in den Einstellungen ----------
 const lookupEnabled = () => settings().addressLookup !== false;
+
+// Standort nur mit Einwilligung (DSGVO Art. 6 Abs. 1 lit. a): erst eigener Hinweis, dann die Abfrage des Browsers.
+// Genutzt wird ein auf ca. 1 km gerundeter Punkt, nur im Arbeitsspeicher – er wird nie gespeichert.
+const geoSupported = 'geolocation' in navigator && window.isSecureContext;
+let geoPosition = null; // { lat, lon, at }
+let geoDenied = false;
+const GEO_MAX_AGE = 15 * 60 * 1000;
+
+function readPosition() {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve({ lat: Math.round(pos.coords.latitude * 100) / 100, lon: Math.round(pos.coords.longitude * 100) / 100, at: Date.now() }),
+      reject,
+      { enableHighAccuracy: false, maximumAge: GEO_MAX_AGE, timeout: 10000 },
+    );
+  });
+}
+
+/** Holt den Standort – nur wenn eingewilligt und der Browser ihn ohne neue Nachfrage hergibt. */
+async function quietPosition() {
+  if (!geoSupported || !settings().geoBias || geoDenied) return null;
+  if (geoPosition && Date.now() - geoPosition.at < GEO_MAX_AGE) return geoPosition;
+  const state = await navigator.permissions?.query({ name: 'geolocation' }).then((r) => r.state).catch(() => 'prompt');
+  if (state !== 'granted') return null; // nicht beim Tippen plötzlich nachfragen – dafür gibt es den Knopf im Menü
+  geoPosition = await readPosition().catch(() => null);
+  return geoPosition;
+}
+
+/** Einwilligung einholen (Dialog), dann Browser-Freigabe. Liefert true, wenn der Standort genutzt werden kann. */
+async function requestGeo({ ask = true } = {}) {
+  if (!geoSupported) { toast('Dein Browser stellt keinen Standort bereit.'); return false; }
+  if (ask && !settings().geoBias) {
+    const dialog = $('#geo-consent');
+    const ok = await new Promise((resolve) => {
+      const onClose = () => { dialog.removeEventListener('close', onClose); resolve(dialog.returnValue === 'confirm'); };
+      dialog.returnValue = '';
+      dialog.addEventListener('close', onClose);
+      dialog.showModal();
+    });
+    if (!ok) return false;
+  }
+  try {
+    geoPosition = await readPosition();
+    geoDenied = false;
+    settings().geoBias = true;
+    save();
+    toast('Straßen in deiner Nähe erscheinen jetzt zuerst');
+    return true;
+  } catch (err) {
+    geoDenied = err?.code === 1;
+    settings().geoBias = false;
+    save();
+    toast(geoDenied ? 'Standort im Browser nicht freigegeben – die Vorschläge funktionieren trotzdem.' : 'Standort konnte nicht ermittelt werden.');
+    return false;
+  } finally {
+    const sw = $('[data-setting="geoBias"]');
+    if (sw) sw.checked = Boolean(settings().geoBias);
+  }
+}
+
+/** Ohne Standort: der eigene Firmensitz als Bezugspunkt – Kunden kommen meist aus der Umgebung. */
+const placeCache = new Map();
+async function companyPlace(signal) {
+  const { zip, city } = settings().company;
+  if (!/^\d{5}$/.test(String(zip).trim()) || !String(city).trim()) return null;
+  const key = `${zip} ${city}`;
+  if (!placeCache.has(key)) placeCache.set(key, locatePlace(zip, city, signal).catch(() => { placeCache.delete(key); return null; }));
+  return placeCache.get(key);
+}
+
+const nearby = { offer: () => geoSupported && !geoDenied, request: () => requestGeo({ ask: true }) };
 const customerLookup = attachAddressLookup({
   street: $('[data-field="customer.street"]', form),
   zip: $('[data-field="customer.zip"]', form),
   city: $('[data-field="customer.city"]', form),
   enabled: () => lookupEnabled() && !isLocked(invoice()),
+  getBias: async (signal) => {
+    const here = await quietPosition();
+    if (here) return { ...here, near: true };
+    const home = await companyPlace(signal);
+    return home ? { ...home, near: false } : null;
+  },
+  nearby,
 });
 attachAddressLookup({
   street: $('[data-setting="company.street"]'),
   zip: $('[data-setting="company.zip"]'),
   city: $('[data-setting="company.city"]'),
   enabled: lookupEnabled,
+  getBias: async () => { const here = await quietPosition(); return here ? { ...here, near: true } : null; },
+  nearby,
 });
 
 // Kunden
@@ -568,7 +649,7 @@ function confirmFinalize(mode) {
 let pdfFonts = null;
 /** Schriften fürs PDF einmalig laden (Inter, Teilmenge mit Umlauten und Latin Extended, ca. 24 KB je Schnitt). */
 function loadPdfFonts() {
-  pdfFonts ??= Promise.all([400, 600, 700].map((w) => fetch(`fonts/inter-pdf-${w}.ttf?v=23`).then((r) => {
+  pdfFonts ??= Promise.all([400, 600, 700].map((w) => fetch(`fonts/inter-pdf-${w}.ttf?v=24`).then((r) => {
     if (!r.ok) throw new Error('Schrift nicht gefunden');
     return r.arrayBuffer();
   }))).then(([regular, semibold, bold]) => ({ regular, semibold, bold }))
@@ -628,7 +709,7 @@ async function exportPdf() {
   const tab = canOpenTab ? window.open('', '_blank') : null;
   tab?.document.write('<title>PDF wird erstellt …</title><p style="font:16px system-ui;padding:24px;color:#475467">PDF wird erstellt …</p>');
   try {
-    const { createInvoicePdf } = await import('./invoice-pdf.js?v=23');
+    const { createInvoicePdf } = await import('./invoice-pdf.js?v=24');
     const view = currentView();
     const [fonts, logo] = await Promise.all([loadPdfFonts(), rasterizeLogo(view.logo)]);
     const bytes = await createInvoicePdf(view, { fonts, logo });
@@ -1150,6 +1231,12 @@ $('#open-settings').addEventListener('click', () => openSettings());
 settingsForm.addEventListener('input', (e) => {
   const t = e.target;
   if (!t.dataset.setting) return;
+  if (t.dataset.setting === 'geoBias') {
+    // Einschalten = Einwilligung (der Text steht direkt am Schalter); Ausschalten = Widerruf, Standort sofort verwerfen
+    if (t.checked) requestGeo({ ask: false });
+    else { settings().geoBias = false; geoPosition = null; save(); toast('Standort wird nicht mehr genutzt'); }
+    return;
+  }
   setPath(settings(), t.dataset.setting, t.type === 'checkbox' ? t.checked : t.value);
   if (t.dataset.setting === 'kleinunternehmer') renderItems();
   if (step === 3) renderBankSummary();

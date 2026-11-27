@@ -22,7 +22,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 - Startet leer: ein Hinweis führt zu den **eigenen Firmendaten** (Einstellungen); ein ausgefülltes Beispiel gibt es per Klick unter *Einstellungen → Beispieldaten ansehen*
 - Geführter Ablauf in **drei Schritten** (Rechnungsdetails → Leistungen → Zahlung & Texte), Aufbau angelehnt an Qonto
 - **Kundenliste**: Kunden speichern und mit einem Klick übernehmen
-- **Adressvorschläge beim Tippen**: Straße eingeben → Vorschlag mit Hausnummer, PLZ und Ort wählen; zur PLZ wird der Ort ergänzt und ein unpassender Ort gemeldet (abschaltbar)
+- **Adressvorschläge beim Tippen**: Straße eingeben → Vorschlag mit Hausnummer, PLZ und Ort wählen; zur PLZ wird der Ort ergänzt und ein unpassender Ort gemeldet (abschaltbar). Nur Straßen, die mit der Eingabe beginnen; sortiert nach Nähe – zum eigenen Firmensitz oder, **nur mit Einwilligung**, zum aktuellen Standort (auf ca. 1 km gerundet, nie gespeichert, jederzeit widerrufbar)
 - **Zahlungsfrist** per Auswahl (sofort, 7/14/30/45/60 Tage oder eigenes Datum), **Leistungszeitraum** von–bis
 - Leistungen mit Einheit, **Netto- oder Bruttopreis** (wird automatisch umgerechnet) und **Rabatt** je Position
 - **Rabatt auf den Gesamtbetrag** in Euro oder Prozent
@@ -73,7 +73,7 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 | Architektur | Rechenlogik (`js/invoice.js`) ohne DOM, vollständig getestet; Oberfläche in `js/app.js` |
 | E-Rechnung | XML nach XRechnung 3.0 (UBL 2.1); bei jedem Push prüft die CI vier Beispiel-Rechnungen mit dem **offiziellen KoSIT-Validator** (EN 16931 + deutsche XRechnung-Regeln) |
 | GiroCode | Inhalt nach EPC069-12 (Version 002, UTF-8); QR-Code über [qrcode-generator](js/vendor/README.md) (MIT), lokal eingebunden |
-| Sicherheit & Datenschutz | Ausgabe nur über `textContent`, XML-Werte werden escaped. Einzige externe Anfragen: Adressvorschläge – nur der getippte Adresstext geht an [Photon](https://photon.komoot.io) (OpenStreetMap) und die [OpenPLZ API](https://www.openplzapi.org); in den Einstellungen abschaltbar |
+| Sicherheit & Datenschutz | Ausgabe nur über `textContent`, XML-Werte werden escaped. Einzige externe Anfragen: Adressvorschläge – nur der getippte Adresstext geht an [Photon](https://photon.komoot.io) (OpenStreetMap) und die [OpenPLZ API](https://www.openplzapi.org); in den Einstellungen abschaltbar. Standort nur nach Einwilligungsdialog + Browser-Freigabe (Art. 6 Abs. 1 lit. a DSGVO, § 25 TDDDG), gerundet und nur im Arbeitsspeicher |
 | PDF | Eigener PDF-Schreiber (`js/pdf.js`) + Layout (`js/invoice-pdf.js`); Inter als eingebettete Teilmenge (`fonts/inter-pdf-*.ttf`, erzeugt mit `scripts/build-pdf-fonts.py`) |
 | Tests | Unit-Tests mit `node:test` – Rundung, Rabattverteilung, Skonto, IBAN, GiroCode, Pflichtangaben, Plausibilität, XML-Summen, PDF-Aufbau und -Text (inkl. Sonderzeichen und Folgeseiten) |
 | Barrierefreiheit | Geprüft mit axe-core ohne Befunde (hell & dunkel, Desktop & Handy): Kontraste nach WCAG AA, Touch-Ziele ≥ 44 px, beschriftete Felder, Fehler per `aria-invalid`/`aria-describedby`, sichtbarer Fokus, `prefers-reduced-motion` |

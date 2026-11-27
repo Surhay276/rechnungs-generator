@@ -25,30 +25,113 @@ async function getJson(url, signal) {
   return data;
 }
 
-/** Straßenvorschläge (nur Deutschland), Hausnummer aus der Eingabe wird übernommen, falls die Karte sie nicht kennt. */
-export async function searchStreets(query, signal) {
-  const params = new URLSearchParams({ q: query, lang: 'de', limit: '10', lat: '51.16', lon: '10.45' });
+// Deutschland als Suchgebiet (minLon, minLat, maxLon, maxLat) – keine Treffer aus dem Ausland
+const BBOX_DE = '5.86,47.27,15.05,55.06';
+
+const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/ß/g, 'ss')
+  .replace(/str\.(?=\s|$)/g, 'strasse').replace(/[^a-z0-9]+/g, ' ').trim();
+
+/** Zerlegt „Sonnenallee 18a“ in Straßenteil und Hausnummer. */
+export function splitStreet(input) {
+  const m = /^(.*?)[\s,]+(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/.exec(String(input).trim());
+  return m ? { name: m[1].trim(), number: m[2].replace(/\s+/g, '') } : { name: String(input).trim(), number: '' };
+}
+
+/**
+ * Wie gut passt ein Straßenname zur Eingabe? Jedes getippte Wort muss der Anfang eines Wortes im Namen sein
+ * („sonn“ → „Sonnenallee“, „karl marx“ → „Karl-Marx-Allee“, „hauptstr“ → „Hauptstraße“). Sonst kein Treffer.
+ */
+export function matchScore(typed, streetName) {
+  const want = norm(typed).split(' ').filter(Boolean);
+  if (!want.length) return 0;
+  const name = norm(streetName);
+  const words = name.split(' ');
+  const joined = name.replace(/ /g, '');
+  for (const w of want) {
+    if (!words.some((x) => x.startsWith(w)) && !(want.length === 1 && joined.startsWith(w))) return 0;
+  }
+  if (name === want.join(' ')) return 3; // exakt
+  return name.startsWith(want[0]) ? 2 : 1; // beginnt mit der Eingabe > Wort mittendrin
+}
+
+const distanceKm = (a, b) => {
+  const rad = Math.PI / 180;
+  const x = (b.lon - a.lon) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
+  const y = (b.lat - a.lat) * rad;
+  return Math.sqrt(x * x + y * y) * 6371;
+};
+
+/**
+ * Straßenvorschläge (nur Deutschland).
+ * @param query   getippter Text, z. B. „Sonnenallee 1“
+ * @param bias    { lat, lon, near } – Bezugspunkt für die Sortierung (Standort mit Einwilligung oder eigener Firmensitz)
+ * @param zip     bereits eingetragene PLZ – Treffer dort zuerst
+ */
+export async function searchStreets(query, { bias = null, zip = '', signal } = {}) {
+  const { name: typedName, number: typedNumber } = splitStreet(query);
+  const params = new URLSearchParams({ q: query, lang: 'de', limit: '25', bbox: BBOX_DE });
   params.append('layer', 'house');
   params.append('layer', 'street');
-  const data = await getJson(`${PHOTON}?${params}`, signal);
-  const typedNumber = /\s(\d+\s*[a-zA-Z]?(?:\s*[-/]\s*\d+\s*[a-zA-Z]?)?)\s*$/.exec(query)?.[1]?.replace(/\s+/g, '');
-  const seen = new Set();
-  const results = [];
-  for (const f of data.features ?? []) {
-    const p = f.properties ?? {};
-    if (p.countrycode !== 'DE' || !p.postcode || !(p.city || p.locality)) continue;
-    const streetName = p.type === 'house' ? p.street : p.name;
-    if (!streetName) continue;
-    const number = p.housenumber || typedNumber || '';
-    const street = `${streetName}${number ? ` ${number}` : ''}`;
-    const city = p.city || p.locality;
-    const key = `${street}|${p.postcode}|${city}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    results.push({ street, zip: p.postcode, city, district: p.district && p.district !== city ? p.district : '' });
-    if (results.length === 6) break;
+  if (bias) {
+    params.set('lat', bias.lat.toFixed(2));
+    params.set('lon', bias.lon.toFixed(2));
+    params.set('zoom', bias.near ? '13' : '11'); // Umkreis, in dem Nähe zählt
+    params.set('location_bias_scale', '0.1'); // Nähe wichtiger als Bekanntheit
   }
-  return results;
+  const data = await getJson(`${PHOTON}?${params}`, signal);
+
+  const candidates = [];
+  (data.features ?? []).forEach((f, order) => {
+    const p = f.properties ?? {};
+    const city = p.city || p.locality || p.county;
+    if (p.countrycode !== 'DE' || !p.postcode || !city) return;
+    const streetName = p.type === 'house' ? p.street : p.name;
+    if (!streetName) return;
+    const score = matchScore(typedName, streetName);
+    if (!score) return; // unscharfe Treffer („Sonn“ → „Johannisstraße“) fliegen raus
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    // Ohne getippte Hausnummer: eine Zeile je Straße statt je Haus. Mit Nummer: passende Häuser zuerst.
+    const number = typedNumber ? (p.type === 'house' ? p.housenumber : typedNumber) : '';
+    if (typedNumber && p.type === 'house' && norm(p.housenumber) !== norm(typedNumber) && !norm(p.housenumber).startsWith(norm(typedNumber))) return;
+    candidates.push({
+      street: `${streetName}${number ? ` ${number}` : ''}`,
+      zip: p.postcode,
+      city,
+      district: p.district && p.district !== city ? p.district : '',
+      exactHouse: Boolean(typedNumber && p.type === 'house' && norm(p.housenumber) === norm(typedNumber)),
+      score,
+      order,
+      km: bias && Number.isFinite(lat) ? distanceKm(bias, { lat, lon }) : null,
+    });
+  });
+
+  const rank = (c) => [
+    zip && c.zip === zip ? 0 : 1, // gleiche PLZ wie schon eingetragen
+    c.exactHouse ? 0 : 1,
+    -c.score,
+    c.km === null ? 0 : Math.round(c.km / 5), // in 5-km-Stufen: nahe Treffer vor fernen
+    c.order, // sonst Reihenfolge von Photon
+  ];
+  candidates.sort((a, b) => {
+    const ra = rank(a); const rb = rank(b);
+    for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i];
+    return 0;
+  });
+  const seen = new Set();
+  return candidates.filter((c) => {
+    const key = `${norm(c.street)}|${c.zip}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  }).slice(0, 6);
+}
+
+/** Ungefähre Koordinaten eines Orts (für die Sortierung nach Nähe zum eigenen Firmensitz). */
+export async function locatePlace(zip, city, signal) {
+  const params = new URLSearchParams({ q: `${zip} ${city}`.trim(), lang: 'de', limit: '1', bbox: BBOX_DE });
+  const data = await getJson(`${PHOTON}?${params}`, signal);
+  const [lon, lat] = data.features?.[0]?.geometry?.coordinates ?? [];
+  return Number.isFinite(lat) ? { lat, lon } : null;
 }
 
 /** Orte zu einer PLZ (meist genau einer). */
@@ -57,12 +140,12 @@ export async function citiesForZip(zip, signal) {
   return [...new Set((Array.isArray(data) ? data : []).map((l) => l.name).filter(Boolean))];
 }
 
-const norm = (s) => String(s ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').replace(/ß/g, 'ss').replace(/[^a-z]/g, '');
 /** „Berlin-Neukölln“ passt zu „Berlin“, „Frankfurt am Main“ zu „Frankfurt a. Main“ nur grob – lieber großzügig. */
-const cityMatches = (city, names) => names.some((n) => norm(city).startsWith(norm(n)) || norm(n).startsWith(norm(city)));
+const cityKey = (s) => norm(s).replace(/ /g, '');
+const cityMatches = (city, names) => names.some((n) => cityKey(city).startsWith(cityKey(n)) || cityKey(n).startsWith(cityKey(city)));
 
 /** Kleines Auswahlmenü unter einem Eingabefeld (ARIA-Combobox). */
-function createMenu(input, { attribution = false } = {}) {
+function createMenu(input, { footer = null } = {}) {
   const id = `ac-${++uid}`;
   const pop = document.createElement('div');
   pop.className = 'ac-pop';
@@ -72,12 +155,9 @@ function createMenu(input, { attribution = false } = {}) {
   list.id = id;
   list.setAttribute('role', 'listbox');
   pop.append(list);
-  if (attribution) {
-    const note = document.createElement('p');
-    note.className = 'ac-note';
-    note.innerHTML = 'Vorschläge: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende';
-    pop.append(note);
-  }
+  if (footer) pop.append(footer);
+  // Klicks im Menü sollen das Eingabefeld nicht verlassen (sonst schließt „blur“ das Menü vorher)
+  pop.addEventListener('pointerdown', (e) => { if (!e.target.closest('a')) e.preventDefault(); });
   const container = input.closest('.field') ?? input.parentElement;
   container.classList.add('ac-field');
   container.append(pop);
@@ -177,9 +257,25 @@ function fill(input, value) {
 /**
  * Hängt die Vorschläge an drei Felder.
  * @param enabled  () => boolean – aus, wenn der Nutzer es abgeschaltet hat oder die Felder gesperrt sind
+ * @param getBias  async () => { lat, lon, near } | null – Bezugspunkt für „Treffer in der Nähe zuerst“
+ * @param nearby   { offer: () => boolean, request: () => Promise<boolean> } – Standort per Einwilligung anbieten
  */
-export function attachAddressLookup({ street, zip, city, enabled = () => true }) {
-  const streetMenu = createMenu(street, { attribution: true });
+export function attachAddressLookup({ street, zip, city, enabled = () => true, getBias = async () => null, nearby = null }) {
+  const footer = document.createElement('div');
+  footer.className = 'ac-foot';
+  const note = document.createElement('p');
+  note.className = 'ac-note';
+  note.innerHTML = '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>-Mitwirkende';
+  const near = document.createElement('button');
+  near.type = 'button';
+  near.className = 'ac-near';
+  near.innerHTML = '<svg class="icon" aria-hidden="true"><use href="#i-pin"/></svg>Treffer in meiner Nähe zuerst';
+  near.addEventListener('click', async () => {
+    streetMenu.close();
+    if (await nearby.request()) { street.focus(); search(); }
+  });
+  footer.append(note, near);
+  const streetMenu = createMenu(street, { footer });
   const zipMenu = createMenu(zip);
   let timer;
   let controller;
@@ -187,15 +283,17 @@ export function attachAddressLookup({ street, zip, city, enabled = () => true })
 
   const abortable = () => { controller?.abort(); controller = new AbortController(); return controller.signal; };
 
-  street.addEventListener('input', (e) => {
+  function search() {
     clearTimeout(timer);
-    if (!e.isTrusted) return; // selbst gesetzte Werte lösen keine Suche aus
     const q = street.value.trim();
     if (!usable(street) || (q.match(/\p{L}/gu) ?? []).length < 3) { streetMenu.close(); return; }
     timer = setTimeout(async () => {
       try {
-        const results = await searchStreets(q, abortable());
+        const signal = abortable();
+        const bias = await getBias(signal).catch(() => null);
+        const results = await searchStreets(q, { bias, zip: /^\d{5}$/.test(zip.value.trim()) ? zip.value.trim() : '', signal });
         if (document.activeElement !== street || street.value.trim() !== q) return;
+        near.hidden = !(nearby?.offer() && !bias?.near);
         streetMenu.open(results.map((r) => ({ ...r, label: r.street, sub: `${r.zip} ${r.city}${r.district ? ` · ${r.district}` : ''}` })), (r) => {
           fill(street, r.street);
           fill(zip, r.zip);
@@ -207,7 +305,8 @@ export function attachAddressLookup({ street, zip, city, enabled = () => true })
         });
       } catch { streetMenu.close(); /* offline oder abgebrochen */ }
     }, DEBOUNCE);
-  });
+  }
+  street.addEventListener('input', (e) => { if (e.isTrusted) search(); }); // selbst gesetzte Werte lösen keine Suche aus
 
   async function checkZip({ fromTyping = false } = {}) {
     const value = zip.value.trim();
