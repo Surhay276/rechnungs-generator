@@ -19,7 +19,7 @@
   <meta name="twitter:card" content="summary_large_image">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=11">
+  <link rel="stylesheet" href="css/style.css?v=12">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -86,6 +86,15 @@
 
           <!-- Schritt 1 -->
           <div class="step-panel" data-panel="1">
+            <div class="onboarding" id="onboarding" hidden>
+              <span class="onboarding-icon" aria-hidden="true"><svg class="icon"><use href="#i-gear"/></svg></span>
+              <div class="onboarding-text">
+                <strong>Trag zuerst deine Firmendaten ein</strong>
+                <p>Sie erscheinen auf jeder Rechnung. Später findest du sie oben rechts unter <span class="kbd-icon" aria-label="Einstellungen"><svg class="icon"><use href="#i-gear"/></svg></span>.</p>
+              </div>
+              <button type="button" class="btn btn-primary" id="onboarding-btn">Firmendaten eintragen</button>
+            </div>
+
             <h2 class="panel-title">Kunde</h2>
             <div class="card">
               <label class="field">
@@ -187,8 +196,8 @@
               <button type="button" class="btn btn-ghost btn-sm" id="save-defaults"><svg class="icon"><use href="#i-check"/></svg>Für neue Rechnungen merken</button>
             </div>
 
-            <h2 class="panel-title">Exportieren</h2>
-            <div class="card export">
+            <h2 class="panel-title mobile-only">Exportieren</h2>
+            <div class="card export mobile-only">
               <button type="button" class="export-option" id="export-pdf">
                 <span class="export-icon"><svg class="icon"><use href="#i-download"/></svg></span>
                 <span><strong>PDF speichern</strong><small>Zum Versenden per E-Mail oder zum Ausdrucken.</small></span>
@@ -205,7 +214,8 @@
         <div class="actionbar">
           <button type="button" class="btn btn-secondary" id="save-draft">Als Entwurf speichern</button>
           <div class="actionbar-nav">
-            <button type="button" class="btn btn-ghost" id="prev-step"><svg class="icon"><use href="#i-left"/></svg>Zurück</button>
+            <button type="button" class="btn btn-secondary" id="prev-step"><svg class="icon"><use href="#i-left"/></svg>Zurück</button>
+            <button type="button" class="btn btn-secondary" id="export-xml-bar" hidden><svg class="icon"><use href="#i-code"/></svg>E-Rechnung (XML)</button>
             <button type="button" class="btn btn-primary" id="next-step">Weiter<svg class="icon"><use href="#i-right"/></svg></button>
           </div>
         </div>
@@ -258,54 +268,73 @@
       <button type="button" class="icon-btn" data-close aria-label="Schließen"><svg class="icon"><use href="#i-x"/></svg></button>
     </div>
     <form class="drawer-body" id="settings-form" novalidate autocomplete="off">
-      <p class="drawer-intro">Diese Angaben erscheinen auf jeder Rechnung und werden automatisch gespeichert.</p>
+      <p class="drawer-intro">Diese Angaben erscheinen auf jeder Rechnung. Alles wird automatisch gespeichert.</p>
 
-      <h3 class="drawer-section">Logo</h3>
-      <div class="logo-row">
-        <div class="logo-preview" id="logo-preview"></div>
-        <div class="logo-actions">
-          <label class="btn btn-secondary btn-sm" for="logo-input" tabindex="0"><svg class="icon"><use href="#i-image"/></svg>Logo hochladen</label>
+      <section class="settings-card" aria-labelledby="set-company">
+        <header class="settings-card-head">
+          <h3 id="set-company">Dein Unternehmen</h3>
+          <span class="settings-status" id="company-status"></span>
+        </header>
+        <div class="logo-row">
+          <div class="logo-preview" id="logo-preview"></div>
+          <div class="logo-actions">
+            <span class="field-label">Logo <span class="optional">optional</span></span>
+            <div class="logo-buttons">
+              <label class="btn btn-secondary btn-sm" for="logo-input" tabindex="0"><svg class="icon"><use href="#i-image"/></svg><span id="logo-btn-text">Hochladen</span></label>
+              <button type="button" class="btn btn-ghost btn-sm" id="logo-remove" hidden>Entfernen</button>
+            </div>
+            <span class="field-hint">PNG, JPG, SVG oder WebP</span>
+          </div>
           <input type="file" id="logo-input" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
-          <button type="button" class="btn btn-ghost btn-sm" id="logo-remove" hidden>Entfernen</button>
-          <span class="field-hint">PNG, JPG, SVG oder WebP</span>
         </div>
-      </div>
+        <div class="form-grid">
+          <label class="field col-full"><span class="field-label">Name / Firma <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.name" autocomplete="organization" required></label>
+          <label class="field col-full"><span class="field-label">Straße und Hausnummer <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.street" autocomplete="street-address" required></label>
+          <label class="field col-zip"><span class="field-label">PLZ <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.zip" inputmode="numeric" autocomplete="postal-code" required></label>
+          <label class="field col-city"><span class="field-label">Ort <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.city" autocomplete="address-level2" required></label>
+          <label class="field col-full"><span class="field-label">Ansprechpartner <span class="optional">optional</span></span><input class="input" data-setting="company.contact" autocomplete="name"></label>
+          <label class="field col-half"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
+          <label class="field col-half"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
+        </div>
+        <p class="field-hint">E-Mail und Telefon werden für die E-Rechnung benötigt.</p>
+      </section>
 
-      <h3 class="drawer-section">Unternehmen</h3>
-      <div class="grid-2">
-        <label class="field span-2"><span class="field-label">Name / Firma</span><input class="input" data-setting="company.name" autocomplete="organization"></label>
-        <label class="field span-2"><span class="field-label">Ansprechpartner</span><input class="input" data-setting="company.contact" autocomplete="name"></label>
-        <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-setting="company.street" autocomplete="street-address"></label>
-        <label class="field"><span class="field-label">PLZ</span><input class="input" data-setting="company.zip" inputmode="numeric" autocomplete="postal-code"></label>
-        <label class="field"><span class="field-label">Ort</span><input class="input" data-setting="company.city" autocomplete="address-level2"></label>
-        <label class="field"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
-        <label class="field"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
-      </div>
+      <section class="settings-card" aria-labelledby="set-tax">
+        <header class="settings-card-head"><h3 id="set-tax">Steuer</h3></header>
+        <div class="form-grid">
+          <label class="field col-half"><span class="field-label">Steuernummer <span class="req" aria-hidden="true">*</span></span><input class="input mono" data-setting="company.taxId" placeholder="12/345/67890"></label>
+          <label class="field col-half"><span class="field-label">USt-IdNr. <span class="optional">optional</span></span><input class="input mono" data-setting="company.vatId" placeholder="DE123456789" autocapitalize="characters"></label>
+        </div>
+        <label class="switch">
+          <input type="checkbox" role="switch" data-setting="kleinunternehmer">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – auf der Rechnung wird keine Umsatzsteuer ausgewiesen.</small></span>
+        </label>
+      </section>
 
-      <h3 class="drawer-section">Steuer</h3>
-      <div class="grid-2">
-        <label class="field"><span class="field-label">Steuernummer</span><input class="input mono" data-setting="company.taxId"></label>
-        <label class="field"><span class="field-label">USt-IdNr. <span class="optional">optional</span></span><input class="input mono" data-setting="company.vatId" placeholder="DE…" autocapitalize="characters"></label>
-      </div>
-      <label class="switch">
-        <input type="checkbox" role="switch" data-setting="kleinunternehmer">
-        <span class="switch-track" aria-hidden="true"></span>
-        <span><strong>Kleinunternehmer</strong><small>§ 19 UStG – es wird keine Umsatzsteuer ausgewiesen.</small></span>
-      </label>
+      <section class="settings-card" aria-labelledby="set-bank">
+        <header class="settings-card-head"><h3 id="set-bank">Bankverbindung</h3></header>
+        <div class="form-grid">
+          <label class="field col-full"><span class="field-label">IBAN</span><input class="input mono" data-setting="company.iban" spellcheck="false" autocapitalize="characters" placeholder="DE00 0000 0000 0000 0000 00"></label>
+          <label class="field col-half"><span class="field-label">Bank</span><input class="input" data-setting="company.bank"></label>
+          <label class="field col-half"><span class="field-label">BIC <span class="optional">optional</span></span><input class="input mono" data-setting="company.bic" autocapitalize="characters"></label>
+        </div>
+        <p class="field-hint">Für den Zahlungshinweis, den GiroCode und die E-Rechnung.</p>
+      </section>
 
-      <h3 class="drawer-section">Bankverbindung</h3>
-      <div class="grid-2">
-        <label class="field span-2"><span class="field-label">IBAN</span><input class="input mono" data-setting="company.iban" spellcheck="false" autocapitalize="characters"></label>
-        <label class="field"><span class="field-label">BIC <span class="optional">optional</span></span><input class="input mono" data-setting="company.bic" autocapitalize="characters"></label>
-        <label class="field"><span class="field-label">Bank</span><input class="input" data-setting="company.bank"></label>
-      </div>
+      <section class="settings-card" aria-labelledby="set-customers">
+        <header class="settings-card-head"><h3 id="set-customers">Gespeicherte Kunden</h3></header>
+        <ul id="customer-list" class="customer-list"></ul>
+      </section>
 
-      <h3 class="drawer-section">Kunden</h3>
-      <ul id="customer-list" class="customer-list"></ul>
-
-      <h3 class="drawer-section">Daten</h3>
-      <button type="button" class="btn btn-ghost btn-sm" id="reset-demo">Alle Daten zurücksetzen (Demo laden)</button>
-    </form>
+      <section class="settings-card" aria-labelledby="set-data">
+        <header class="settings-card-head"><h3 id="set-data">Daten</h3></header>
+        <p class="field-hint">Alle Daten liegen nur in diesem Browser auf diesem Gerät.</p>
+        <div class="data-actions">
+          <button type="button" class="btn btn-secondary btn-sm" id="load-demo">Beispieldaten ansehen</button>
+          <button type="button" class="btn btn-ghost btn-sm danger-text" id="reset-all">Alles löschen</button>
+        </div>
+      </section>
   </dialog>
 
   <template id="item-template">
@@ -347,6 +376,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=11"></script>
+  <script type="module" src="js/app.js?v=12"></script>
 </body>
 </html>

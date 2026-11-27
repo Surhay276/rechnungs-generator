@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   test:
+    name: Unit-Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,3 +21,55 @@ jobs:
         with:
           node-version: 22
       - run: npm test
+
+  e-rechnung:
+    name: E-Rechnung prüfen (KoSIT-Validator, XRechnung 3.0 / EN 16931)
+    runs-on: ubuntu-latest
+    env:
+      VALIDATOR_URL: https://github.com/itplr-kosit/validator/releases/download/v1.5.0/validator-1.5.0-distribution.zip
+      VALIDATOR_SHA256: ac78fb3e89d6daa81770049b004bd1408cad81100b885dd1d8da2cd169bd679f
+      CONFIG_URL: https://github.com/itplr-kosit/validator-configuration-xrechnung/releases/download/release-2024-06-20/validator-configuration-xrechnung_3.0.2_2024-06-20.zip
+      CONFIG_SHA256: 128e59bd2a6ccd0d8796313cfd794480035da6f87998dcb157b8e6af5a1e4069
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Offiziellen Validator der KoSIT und XRechnung-Regeln laden (mit Prüfsumme)
+        run: |
+          mkdir -p "$RUNNER_TEMP/kosit" && cd "$RUNNER_TEMP/kosit"
+          curl -sSfL -o validator.zip "$VALIDATOR_URL"
+          curl -sSfL -o config.zip "$CONFIG_URL"
+          echo "$VALIDATOR_SHA256  validator.zip" | sha256sum -c -
+          echo "$CONFIG_SHA256  config.zip" | sha256sum -c -
+          unzip -q validator.zip -d validator
+          unzip -q config.zip -d config
+
+      - name: Beispiel-E-Rechnungen erzeugen
+        run: node scripts/xrechnung-samples.mjs xrechnung-out
+
+      - name: E-Rechnungen prüfen
+        run: |
+          java -jar "$RUNNER_TEMP/kosit/validator/validationtool-1.5.0-standalone.jar" \
+            -s "$RUNNER_TEMP/kosit/config/scenarios.xml" \
+            -r "$RUNNER_TEMP/kosit/config" \
+            -o reports \
+            xrechnung-out/*.xml || true
+          node scripts/check-kosit-reports.mjs reports "$(ls xrechnung-out/*.xml | wc -l)"
+
+      - name: Prüfberichte aufbewahren
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: xrechnung-pruefberichte
+          path: |
+            xrechnung-out/
+            reports/
+          retention-days: 14

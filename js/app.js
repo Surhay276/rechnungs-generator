@@ -2,14 +2,14 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=11';
+} from './invoice.js?v=12';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=11';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=12';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
-const STORAGE_KEY = 'rechnungen:v2';
+const STORAGE_KEY = 'rechnungen:v3';
 const THEME_KEY = 'rechnungen:theme';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -73,11 +73,35 @@ function newInvoice(s = store) {
   };
 }
 
+/** Leere Einstellungen – beim ersten Start trägt man seine eigenen Daten ein. */
+function emptySettings() {
+  return {
+    company: { name: '', contact: '', street: '', zip: '', city: '', country: 'DE', taxId: '', vatId: '', email: '', phone: '', iban: '', bic: '', bank: '', logo: '' },
+    kleinunternehmer: false,
+    defaults: {
+      intro: 'Sehr geehrte Damen und Herren,\nhiermit stelle ich Ihnen folgende Leistungen in Rechnung:',
+      note: 'Vielen Dank für Ihren Auftrag.\n\nMit freundlichen Grüßen',
+      paymentDays: 14,
+    },
+  };
+}
+
+/** Standard: leerer Start ohne Beispieldaten. */
 function seed() {
+  const base = { settings: emptySettings(), customers: [], invoices: [] };
+  const inv = newInvoice(base);
+  return { ...base, invoices: [inv], currentId: inv.id };
+}
+
+/** Optional: ausgefülltes Beispiel zum Ausprobieren (in den Einstellungen). */
+function demo() {
   const t = today();
   const invoice = { ...sampleInvoice(t), id: newId(), number: `RE-${t.slice(0, 4)}-0001`, serviceFrom: `${t.slice(0, 8)}01`, serviceTo: t, updatedAt: Date.now() };
   return { settings: sampleSettings(), customers: [{ ...invoice.customer }], invoices: [invoice], currentId: invoice.id };
 }
+
+/** Sind die Firmendaten vollständig genug für eine Rechnung? */
+const companyMissing = () => validateInvoiceFields(invoice(), settings()).filter((e) => e.field.startsWith('company.'));
 
 function load() {
   try {
@@ -119,8 +143,9 @@ function setStep(n) {
     b.classList.toggle('is-done', s < step);
     if (s === step) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current');
   });
-  $('#prev-step').hidden = step === 1;
+  $('#prev-step').disabled = step === 1; // bleibt sichtbar → Leiste springt nicht
   const last = step === 3;
+  $('#export-xml-bar').hidden = !last;
   for (const btn of [$('#next-step'), $('#sumbar-action')]) {
     btn.replaceChildren(last ? icon('download') : '', last ? 'PDF speichern' : 'Weiter', last ? '' : icon('right'));
   }
@@ -642,6 +667,8 @@ function update() {
   renderFieldErrors();
   renderTitle();
   $('#sumbar-total').textContent = totals ? formatEUR(totals.gross) : '–';
+  renderOnboarding();
+  if ($('#settings').open) renderCompanyStatus();
   save();
 }
 
@@ -793,6 +820,14 @@ function fillSettings() {
   }
   renderLogo();
   renderCustomerList();
+  renderCompanyStatus();
+}
+
+function renderCompanyStatus() {
+  const missing = companyMissing().length;
+  const status = $('#company-status');
+  status.textContent = missing ? `${missing} Pflichtangabe${missing > 1 ? 'n' : ''} fehlen` : 'Vollständig';
+  status.classList.toggle('is-ok', !missing);
 }
 function openSettings(focusField) {
   fillSettings();
@@ -820,6 +855,7 @@ function renderLogo() {
   const box = $('#logo-preview');
   box.replaceChildren(logo ? el('img', { src: logo, alt: 'Aktuelles Logo' }) : icon('image'));
   $('#logo-remove').hidden = !logo;
+  $('#logo-btn-text').textContent = logo ? 'Ändern' : 'Hochladen';
 }
 $('#logo-input').addEventListener('change', async (e) => {
   const file = e.target.files[0];
@@ -878,13 +914,24 @@ function renderCustomerList() {
     : [el('li', { className: 'empty', textContent: 'Noch keine Kunden gespeichert.' })]));
 }
 
-$('#reset-demo').addEventListener('click', () => {
+function replaceStore(next, message) {
   const before = structuredClone(store);
-  store = seed();
+  store = next;
   fillSettings();
   resetEditorState();
-  toast('Demo-Daten geladen', { label: 'Rückgängig', run: () => { store = before; fillSettings(); resetEditorState(); } });
-});
+  toast(message, { label: 'Rückgängig', run: () => { store = before; fillSettings(); resetEditorState(); } });
+}
+$('#load-demo').addEventListener('click', () => replaceStore(demo(), 'Beispieldaten geladen'));
+$('#reset-all').addEventListener('click', () => replaceStore(seed(), 'Alle Daten gelöscht'));
+
+// ---------- Hinweis: eigene Firmendaten eintragen ----------
+function renderOnboarding() {
+  const missing = companyMissing().length > 0;
+  $('#onboarding').hidden = !missing;
+  $('#open-settings').classList.toggle('needs-setup', missing);
+}
+$('#onboarding-btn').addEventListener('click', () => openSettings(companyMissing()[0]?.field ?? 'company.name'));
+$('#export-xml-bar').addEventListener('click', exportXml);
 
 // ---------- Design ----------
 const themeBtn = $('#theme-btn');
