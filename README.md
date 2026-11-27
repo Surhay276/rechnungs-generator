@@ -66,9 +66,8 @@ Rechnungen direkt im Browser erstellen – Schritt für Schritt, mit Live-Vorsch
 | GiroCode | Inhalt nach EPC069-12 (Version 002, UTF-8); QR-Code über [qrcode-generator](js/vendor/README.md) (MIT), lokal eingebunden |
 | Sicherheit | Ausgabe nur über `textContent`, XML-Werte werden escaped; keine externen Anfragen |
 | Tests | 16 Unit-Tests mit `node:test` – Rundung, Rabattverteilung, Skonto, IBAN, GiroCode, Pflichtangaben, XML-Summen |
-| Barrierefreiheit | Beschriftete Felder, Fehler per `aria-invalid`/`aria-describedby`, sichtbarer Fokus, `prefers-reduced-motion` |
+| Barrierefreiheit | Geprüft mit axe-core ohne Befunde (hell & dunkel, Desktop & Handy): Kontraste nach WCAG AA, Touch-Ziele ≥ 44 px, beschriftete Felder, Fehler per `aria-invalid`/`aria-describedby`, sichtbarer Fokus, `prefers-reduced-motion` |
 | CI/CD | GitHub Actions: Unit-Tests + E-Rechnungs-Prüfung (Validator per Prüfsumme gesichert), Deployment über GitHub Pages |
-| Barrierefreiheit | Geprüft mit axe-core ohne Befunde (hell & dunkel, Desktop & Handy): Kontraste nach WCAG AA, Touch-Ziele ≥ 44 px, Tastaturbedienung, reduzierte Bewegung |
 | Aktualität | Die Seite fragt beim Öffnen `version.json` am Cache vorbei ab und lädt sich bei einer neueren Version einmal frisch – so sieht niemand eine veraltete Version (`node scripts/bump-version.mjs` zählt alle Versionsangaben hoch) |
 
 ```
