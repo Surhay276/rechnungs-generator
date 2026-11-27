@@ -166,3 +166,37 @@ test('Festschreibung: abgeschlossene Rechnung friert Einstellungen ein', async (
   assert.equal(copy.snapshot, undefined);
   assert.ok(isLocked(done));
 });
+
+test('Plausibilität: Quatsch-Eingaben werden erkannt, echte Namen nicht', async () => {
+  const { checkName, checkStreet, checkZip, checkCity } = await import('../js/invoice.js');
+  for (const bad of ['a', 'xx', 'asdf', 'qwertz', 'aaaa', 'hjkgfd', 'jdjdjd', 'Test', 'Quatsch', 'Lorem Ipsum']) {
+    assert.ok(checkName(bad), `„${bad}“ sollte abgelehnt werden`);
+  }
+  for (const ok of ['BMW AG', 'KPMG', 'Max Mustermann Webdesign', 'Hüseyin Surhay Yılmaz', 'Dr. Ömer Şahin', 'Müller & Söhne',
+    "O'Brien", 'Schifffahrt GmbH', 'Angstschweiß KG']) {
+    assert.equal(checkName(ok), null, `„${ok}“ ist ein echter Name`);
+  }
+  assert.match(checkStreet('Hauptstraße'), /Hausnummer fehlt/);
+  assert.ok(checkStreet('asdf 5'));
+  for (const ok of ['Sonnenallee 18', 'Am Markt 12a', 'Straße des 17. Juni 135', 'Karl-Marx-Allee 90/92', 'Postfach 12 34']) {
+    assert.equal(checkStreet(ok), null, ok);
+  }
+  assert.equal(checkZip('12047'), null);
+  assert.ok(checkZip('1234'));
+  assert.ok(checkZip('00000'));
+  assert.equal(checkCity('Frankfurt (Oder)'), null);
+  assert.ok(checkCity('B3rlin'));
+  assert.ok(checkCity('asdf'));
+});
+
+test('Plausibilität greift in der Rechnungsprüfung je Feld', () => {
+  const settings = sampleSettings();
+  const inv = sampleInvoice();
+  inv.customer.name = 'a';
+  inv.customer.street = 'Hauptstraße';
+  inv.customer.zip = '123';
+  settings.company.taxId = '123';
+  settings.company.email = 'kein-mail';
+  assert.deepEqual(validateInvoiceFields(inv, settings).map((e) => e.field),
+    ['company.email', 'company.taxId', 'customer.name', 'customer.street', 'customer.zip']);
+});

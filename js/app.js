@@ -1,15 +1,13 @@
 import {
-  UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
-  skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
-  validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
+  UNITS, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
+  isValidIBAN, formatIBAN, grossFromNet, netFromGross, formatAddress,
+  validateInvoiceFields, validateXRechnungFields, toXRechnung,
   isLocked, finalizeInvoice, settingsFor, copyAsDraft,
-} from './invoice.js?v=22';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=22';
-import { qrcode } from './vendor/qrcode.mjs';
-import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=22';
-
-qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
+} from './invoice.js?v=23';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=23';
+import { buildInvoiceView, formatDate } from './view.js?v=23';
+import { attachAddressLookup } from './address.js?v=23';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=23';
 
 const STORAGE_KEY = 'rechnungen:v3';
 const THEME_KEY = 'rechnungen:theme';
@@ -36,7 +34,6 @@ function icon(name) {
 const newId = () => globalThis.crypto?.randomUUID?.() ?? `id-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 const today = () => new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10);
 const dateFmt = new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
-const formatDate = (iso) => (iso ? dateFmt.format(new Date(`${iso}T00:00:00Z`)) : '');
 const centsToInput = (cents) => (cents / 100).toFixed(2).replace('.', ',');
 const getPath = (obj, path) => path.split('.').reduce((o, k) => o?.[k], obj);
 function setPath(obj, path, value) {
@@ -114,7 +111,12 @@ function load() {
   return seed();
 }
 
-let store = load();
+let store = normalize(load());
+/** Ergänzt Einstellungen, die ältere Speicherstände noch nicht kennen. */
+function normalize(s) {
+  s.settings.addressLookup ??= true;
+  return s;
+}
 if (!store.invoices.some((i) => i.id === store.currentId)) store.currentId = store.invoices[0].id;
 // Ältere Speicherstände: abgeschlossene Rechnungen ohne eingefrorene Firmendaten nachträglich festschreiben
 store.invoices = store.invoices.map((inv) => (isLocked(inv) && !inv.snapshot ? finalizeInvoice({ ...inv, status: 'entwurf' }, store.settings, { design: store.settings.design ?? null, now: inv.updatedAt }) : inv));
@@ -154,7 +156,7 @@ function setStep(n) {
   const last = step === 3;
   $('#export-xml-bar').hidden = !last;
   for (const btn of [$('#next-step'), $('#sumbar-action')]) {
-    btn.replaceChildren(last ? icon('download') : '', last ? 'PDF speichern' : 'Weiter', last ? '' : icon('right'));
+    btn.replaceChildren(last ? icon('download') : '', last ? 'PDF exportieren' : 'Weiter', last ? '' : icon('right'));
   }
   if (step === 3) renderBankSummary();
   $('#scroller').scrollTo?.({ top: 0 });
@@ -197,6 +199,7 @@ function fillForm() {
     if (input.type === 'checkbox') input.checked = Boolean(value);
     else input.value = value ?? '';
   }
+  customerLookup.reset();
   renderCustomerSelect();
   renderPaymentChips();
   renderItems();
@@ -235,6 +238,21 @@ form.addEventListener('input', (e) => {
     if (t.dataset.field === 'date' || t.dataset.field === 'dueDate') renderPaymentChips();
   }
   update();
+});
+
+// Adressvorschläge (Straße → PLZ + Ort, PLZ → Ort) – abschaltbar in den Einstellungen
+const lookupEnabled = () => settings().addressLookup !== false;
+const customerLookup = attachAddressLookup({
+  street: $('[data-field="customer.street"]', form),
+  zip: $('[data-field="customer.zip"]', form),
+  city: $('[data-field="customer.city"]', form),
+  enabled: () => lookupEnabled() && !isLocked(invoice()),
+});
+attachAddressLookup({
+  street: $('[data-setting="company.street"]'),
+  zip: $('[data-setting="company.zip"]'),
+  city: $('[data-setting="company.city"]'),
+  enabled: lookupEnabled,
 });
 
 // Kunden
@@ -510,6 +528,7 @@ document.addEventListener('focusout', (e) => {
 // ---------- Export ----------
 function checkBeforeExport(mode) {
   exportMode = mode;
+  if (isLocked(invoice())) return true; // wurde beim Abschließen geprüft und bleibt unverändert
   const errors = currentErrors();
   if (!errors.length) return true;
   showAllErrors = true;
@@ -534,7 +553,7 @@ function confirmFinalize(mode) {
   if (isLocked(invoice())) return Promise.resolve(true);
   const dialog = $('#finalize');
   $('#finalize-number').textContent = invoice().number;
-  $('#finalize-confirm-label').textContent = mode === 'xml' ? 'Abschließen & E-Rechnung laden' : 'Abschließen & PDF speichern';
+  $('#finalize-confirm-label').textContent = mode === 'xml' ? 'Abschließen & E-Rechnung laden' : 'Abschließen & PDF exportieren';
   return new Promise((resolve) => {
     const done = (ok) => { dialog.removeEventListener('close', onClose); resolve(ok); };
     const onClose = () => done(dialog.returnValue === 'confirm');
@@ -545,14 +564,90 @@ function confirmFinalize(mode) {
   });
 }
 
+// ---------- PDF direkt im Programm erzeugen (ohne Druckdialog) ----------
+let pdfFonts = null;
+/** Schriften fürs PDF einmalig laden (Inter, Teilmenge mit Umlauten und Latin Extended, ca. 24 KB je Schnitt). */
+function loadPdfFonts() {
+  pdfFonts ??= Promise.all([400, 600, 700].map((w) => fetch(`fonts/inter-pdf-${w}.ttf?v=23`).then((r) => {
+    if (!r.ok) throw new Error('Schrift nicht gefunden');
+    return r.arrayBuffer();
+  }))).then(([regular, semibold, bold]) => ({ regular, semibold, bold }))
+    .catch((e) => { pdfFonts = null; throw e; });
+  return pdfFonts;
+}
+
+/** Logo als Rohpixel (RGB + Transparenz) – Seitenverhältnis bleibt exakt erhalten, nichts wird beschnitten. */
+function rasterizeLogo(src) {
+  if (!src) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const w0 = img.naturalWidth || 300;
+      const h0 = img.naturalHeight || 150;
+      // Pixelgrafiken in Originalgröße, SVGs scharf auf bis zu 1200 × 480 px
+      const scale = src.startsWith('data:image/svg') ? Math.min(1200 / w0, 480 / h0) : Math.min(1, 1200 / w0, 480 / h0);
+      const width = Math.max(1, Math.round(w0 * scale));
+      const height = Math.max(1, Math.round(h0 * scale));
+      const canvas = el('canvas', { width, height });
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      const { data } = ctx.getImageData(0, 0, width, height);
+      const rgb = new Uint8Array(width * height * 3);
+      const alpha = new Uint8Array(width * height);
+      let transparent = false;
+      for (let i = 0, j = 0; i < data.length; i += 4, j++) {
+        rgb[j * 3] = data[i]; rgb[j * 3 + 1] = data[i + 1]; rgb[j * 3 + 2] = data[i + 2];
+        alpha[j] = data[i + 3];
+        if (data[i + 3] < 255) transparent = true;
+      }
+      resolve({ width, height, rgb, alpha: transparent ? alpha : null });
+    };
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+
+function currentView(inv = invoice()) {
+  const s = invSettings(inv);
+  let totals = null;
+  try { totals = calculateTotals(inv.items, { kleinunternehmer: s.kleinunternehmer, discount: inv.discount }); } catch { /* ungültig */ }
+  return buildInvoiceView(inv, s, totals, design(s));
+}
+
+let pdfBusy = false;
 async function exportPdf() {
+  if (pdfBusy) return;
   if (!checkBeforeExport('pdf')) return;
   if (!(await confirmFinalize('pdf'))) return;
   markCreated();
-  const previousTitle = document.title;
-  document.title = `${invoice().number} ${invoice().customer.name}`.trim(); // Dateiname im PDF-Dialog
-  window.print();
-  document.title = previousTitle;
+  pdfBusy = true;
+  document.documentElement.classList.add('pdf-busy');
+  // Neues Fenster sofort öffnen, solange der Klick noch „frisch“ ist – sonst blockt der Browser es als Pop-up.
+  // Auf Handys übernimmt das System das Öffnen der heruntergeladenen Datei.
+  const canOpenTab = matchMedia('(pointer: fine)').matches;
+  const tab = canOpenTab ? window.open('', '_blank') : null;
+  tab?.document.write('<title>PDF wird erstellt …</title><p style="font:16px system-ui;padding:24px;color:#475467">PDF wird erstellt …</p>');
+  try {
+    const { createInvoicePdf } = await import('./invoice-pdf.js?v=23');
+    const view = currentView();
+    const [fonts, logo] = await Promise.all([loadPdfFonts(), rasterizeLogo(view.logo)]);
+    const bytes = await createInvoicePdf(view, { fonts, logo });
+    const file = new File([bytes], `${view.fileName}.pdf`, { type: 'application/pdf' });
+    const url = URL.createObjectURL(file);
+    // 1. herunterladen …
+    el('a', { href: url, download: file.name }).click();
+    // 2. … und gleich öffnen
+    if (tab && !tab.closed) tab.location.href = url;
+    toast(`${file.name} gespeichert`, { label: 'Öffnen', run: () => window.open(url, '_blank') });
+    setTimeout(() => URL.revokeObjectURL(url), 10 * 60 * 1000);
+  } catch (err) {
+    tab?.close();
+    console.error(err);
+    toast('Das PDF konnte nicht erstellt werden. Bitte die Seite neu laden und erneut versuchen.');
+  } finally {
+    pdfBusy = false;
+    document.documentElement.classList.remove('pdf-busy');
+  }
 }
 
 async function exportXml() {
@@ -578,13 +673,37 @@ $('#save-draft').addEventListener('click', () => {
 // ---------- Vorschau ----------
 const preview = $('#preview');
 
-function giroCodeSvg(payload) {
-  const qr = qrcode(0, 'M');
-  qr.addData(payload, 'Byte');
-  qr.make();
-  const n = qr.getModuleCount();
+/**
+ * Logo in exakter Originalform: Breite und Höhe werden aus dem Seitenverhältnis berechnet
+ * (passt in 55 × 24 mm, wie im PDF) – kein Zuschneiden, kein Verzerren.
+ */
+const logoSizes = new Map();
+function sizeLogo(img, w, h) {
+  const scale = Math.min(55 / w, 24 / h);
+  img.style.width = `${(w * scale).toFixed(2)}mm`;
+  img.style.height = `${(h * scale).toFixed(2)}mm`;
+}
+function logoImage(src, alt) {
+  const img = el('img', { className: 'inv-logo', src, alt: alt || 'Logo' });
+  const known = logoSizes.get(src);
+  if (known) sizeLogo(img, ...known);
+  else {
+    img.style.visibility = 'hidden';
+    img.addEventListener('load', () => {
+      const size = [img.naturalWidth || 300, img.naturalHeight || 150];
+      logoSizes.set(src, size);
+      sizeLogo(img, ...size);
+      img.style.visibility = '';
+    }, { once: true });
+  }
+  return img;
+}
+
+/** GiroCode als SVG aus dem Modul-Raster (2 Module Ruhezone rundherum). */
+function giroCodeSvg(modules) {
+  const n = modules.length;
   let d = '';
-  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (qr.isDark(r, c)) d += `M${c} ${r}h1v1h-1z`;
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (modules[r][c]) d += `M${c} ${r}h1v1h-1z`;
   const svg = document.createElementNS(SVG_NS, 'svg');
   svg.setAttribute('viewBox', `-2 -2 ${n + 4} ${n + 4}`);
   svg.setAttribute('class', 'giro-qr');
@@ -615,118 +734,63 @@ function applyDesign(target, source = settings()) {
   target.classList.toggle('head-light', head === 'light');
 }
 
-function renderPreview(totals) {
+function renderPreview() {
   const inv = invoice();
-  const s = invSettings(inv);
-  applyDesign(preview, s);
-  const c = s.company;
-  const k = inv.customer;
-  const ku = s.kleinunternehmer;
-  const due = dueDate(inv);
-  const skonto = totals ? skontoInfo(totals.gross, inv.date, inv.skonto) : null;
+  applyDesign(preview, invSettings(inv));
+  const v = currentView(inv);
 
-  const metaRows = [
-    ['Rechnungsnummer', inv.number || '—'],
-    ['Rechnungsdatum', formatDate(inv.date) || '—'],
-    inv.serviceFrom
-      ? ['Leistungszeitraum', inv.serviceTo && inv.serviceTo !== inv.serviceFrom ? `${formatDate(inv.serviceFrom)} – ${formatDate(inv.serviceTo)}` : formatDate(inv.serviceFrom)]
-      : ['Leistungsdatum', formatDate(inv.date) || '—'],
-    due && ['Fällig am', formatDate(due)],
-    k.reference && ['Ihre Referenz', k.reference],
-  ].filter(Boolean);
+  const rows = v.rows.map((r) => el('tr', {},
+    el('td', { className: 'pos', textContent: r.pos }),
+    el('td', {},
+      el('strong', { textContent: r.description }),
+      ...r.details.map((d) => el('span', { className: 'inv-details', textContent: d }))),
+    el('td', { className: 'num', textContent: r.quantity }),
+    el('td', { className: 'num', textContent: r.price }),
+    v.showTax ? el('td', { className: 'num', textContent: r.tax }) : null,
+    el('td', { className: 'num', textContent: r.total })));
 
-  const rows = inv.items.map((item, i) => {
-    const line = totals?.lines[i];
-    let price = '–';
-    try { price = formatEUR(toCents(item.unitPrice)); } catch { /* ungültig */ }
-    const discountText = line?.discount
-      ? `abzgl. ${item.discount.type === 'percent' ? `${String(item.discount.value).replace('.', ',')} % ` : ''}Rabatt (−${formatEUR(line.discount)})`
-      : '';
-    return el('tr', {},
-      el('td', { className: 'pos', textContent: String(i + 1) }),
-      el('td', {},
-        el('strong', { textContent: item.description || '—' }),
-        item.details && el('span', { className: 'inv-details', textContent: item.details }),
-        discountText && el('span', { className: 'inv-details', textContent: discountText })),
-      el('td', { className: 'num', textContent: `${item.quantity} ${unitLabel(item.unit)}`.trim() }),
-      el('td', { className: 'num', textContent: price }),
-      ku ? null : el('td', { className: 'num', textContent: `${item.taxRate} %` }),
-      el('td', { className: 'num', textContent: line ? formatEUR(line.net) : '–' }));
-  });
-
-  const sumRow = (label, value, cls = '') => el('tr', { className: cls }, el('td', { textContent: label }), el('td', { className: 'num', textContent: value }));
-  const sums = totals
-    ? [
-      totals.discount > 0 && sumRow('Zwischensumme', formatEUR(totals.subtotal)),
-      totals.discount > 0 && sumRow(`Rabatt${inv.discount?.type === 'percent' ? ` (${String(inv.discount.value).replace('.', ',')} %)` : ''}`, `−${formatEUR(totals.discount)}`),
-      sumRow('Nettobetrag', formatEUR(totals.net)),
-      ...totals.taxes.map((t) => sumRow(`USt ${t.rate} % auf ${formatEUR(t.base)}`, formatEUR(t.amount))),
-      sumRow('Rechnungsbetrag', formatEUR(totals.gross), 'grand'),
-    ]
+  const sums = v.sums
+    ? v.sums.map((x) => el('tr', { className: x.grand ? 'grand' : '' }, el('td', { textContent: x.label }), el('td', { className: 'num', textContent: x.value })))
     : [el('tr', {}, el('td', { colSpan: 2, textContent: 'Bitte gültige Beträge eingeben.' }))];
 
-  let payText = '';
-  if (totals && totals.gross > 0) {
-    payText = !due || due === inv.date
-      ? `Bitte überweisen Sie den Betrag von ${formatEUR(totals.gross)} sofort unter Angabe der Rechnungsnummer ${inv.number}.`
-      : `Bitte überweisen Sie den Betrag von ${formatEUR(totals.gross)} bis zum ${formatDate(due)} unter Angabe der Rechnungsnummer ${inv.number}.`;
-  }
-  const skontoText = skonto?.until
-    ? `Bei Zahlung bis zum ${formatDate(skonto.until)} gewähren wir ${String(skonto.percent).replace('.', ',')} % Skonto (${formatEUR(skonto.amount)}) – zu zahlen sind dann ${formatEUR(skonto.payable)}.`
-    : '';
-
-  let qr = null;
-  if (inv.giroCode && totals?.gross > 0 && isValidIBAN(c.iban) && c.name) {
-    try { qr = giroCodeSvg(epcPayload({ name: c.name, iban: c.iban, bic: c.bic, amountCents: totals.gross, reference: inv.number })); } catch { qr = null; }
-  }
+  let qr = v.qr ? el('figure', { className: 'inv-qr' }, giroCodeSvg(v.qr), el('figcaption', { textContent: v.qrCaption })) : null;
   // GiroCode gewünscht, aber IBAN fehlt/ungültig → sichtbarer Hinweis (nur am Bildschirm, nie im PDF)
-  if (!qr && inv.giroCode && totals?.gross > 0 && !isValidIBAN(c.iban)) {
+  if (v.qrMissing) {
     qr = el('button', { type: 'button', className: 'inv-qr-missing', onclick: () => openSettings('company.iban') },
       icon('alert'),
       el('strong', { textContent: 'GiroCode fehlt' }),
-      el('span', { textContent: c.iban ? 'IBAN ungültig – hier korrigieren' : 'IBAN eintragen, dann erscheint er hier' }));
+      el('span', { textContent: v.qrMissing.invalid ? 'IBAN ungültig – hier korrigieren' : 'IBAN eintragen, dann erscheint er hier' }));
   }
-
-  const sender = [c.name, c.street, [c.zip, c.city].filter(Boolean).join(' ')].filter(Boolean).join(' · ');
 
   preview.replaceChildren(...[
     el('header', { className: 'inv-head' },
-      el('h2', { className: 'inv-title', textContent: 'Rechnung' }),
-      c.logo
-        ? el('img', { className: 'inv-logo', src: c.logo, alt: c.name || 'Logo' })
-        : el('div', { className: 'inv-brand', textContent: c.name || 'Dein Unternehmen' })),
-    el('p', { className: 'inv-return', textContent: sender }),
+      el('h2', { className: 'inv-title', textContent: v.title }),
+      v.logo
+        ? logoImage(v.logo, v.companyName)
+        : el('div', { className: 'inv-brand', textContent: v.brand })),
+    el('p', { className: 'inv-return', textContent: v.sender }),
     el('div', { className: 'inv-address-row' },
       el('div', { className: 'inv-recipient' },
-        el('strong', { textContent: k.name || 'Kunde' }),
-        el('p', {}, ...multiline(formatAddress(k)))),
-      el('dl', { className: 'inv-meta' }, ...metaRows.flatMap(([dt, dd]) => [el('dt', { textContent: dt }), el('dd', { textContent: dd })]))),
-    inv.intro && el('p', { className: 'inv-intro', textContent: inv.intro }),
+        el('strong', { textContent: v.recipient.name }),
+        el('p', {}, ...multiline(v.recipient.address))),
+      el('dl', { className: 'inv-meta' }, ...v.meta.flatMap(([dt, dd]) => [el('dt', { textContent: dt }), el('dd', { textContent: dd })]))),
+    v.intro && el('p', { className: 'inv-intro', textContent: v.intro }),
     el('table', { className: 'inv-items' },
       el('thead', {}, el('tr', {},
         el('th', { className: 'pos', textContent: 'Pos.' }), el('th', { textContent: 'Beschreibung' }),
         el('th', { className: 'num col-qty', textContent: 'Menge' }), el('th', { className: 'num col-price', textContent: 'Einzelpreis' }),
-        ku ? null : el('th', { className: 'num col-tax', textContent: 'USt' }),
+        v.showTax ? el('th', { className: 'num col-tax', textContent: 'USt' }) : null,
         el('th', { className: 'num col-total', textContent: 'Betrag' }))),
       el('tbody', {}, ...rows)),
-    el('table', { className: 'inv-sum' }, el('tbody', {}, ...sums.filter(Boolean))),
-    ku && el('p', { className: 'inv-note', textContent: KLEINUNTERNEHMER_HINWEIS }),
-    (payText || qr) && el('div', { className: 'inv-pay' },
-      el('div', {}, payText && el('p', { textContent: payText }), skontoText && el('p', { textContent: skontoText })),
-      qr && (qr.tagName === 'BUTTON' ? qr : el('figure', { className: 'inv-qr' }, qr, el('figcaption', { textContent: 'Jetzt mit dem Smartphone scannen' })))),
-    inv.note && el('p', { className: 'inv-note', textContent: inv.note }),
+    el('table', { className: 'inv-sum' }, el('tbody', {}, ...sums)),
+    v.kuNote && el('p', { className: 'inv-note', textContent: v.kuNote }),
+    (v.payTexts.length || qr) && el('div', { className: 'inv-pay' },
+      el('div', {}, ...v.payTexts.map((t) => el('p', { textContent: t }))),
+      qr),
+    v.note && el('p', { className: 'inv-note', textContent: v.note }),
     el('div', { className: 'inv-body-end', ariaHidden: 'true' }),
     el('footer', { className: 'inv-foot' },
-      el('div', {}, el('strong', { textContent: c.name || '' }), el('br'), ...multiline(formatAddress(c))),
-      el('div', {},
-        c.phone && `Tel. ${c.phone}`, c.phone && el('br'),
-        c.email, c.email && el('br'),
-        c.taxId && `Steuernr. ${c.taxId}`, c.taxId && el('br'),
-        c.vatId && `USt-IdNr. ${c.vatId}`),
-      el('div', {},
-        c.bank, c.bank && el('br'),
-        c.iban && `IBAN ${formatIBAN(c.iban)}`, c.iban && el('br'),
-        c.bic && `BIC ${c.bic}`)),
+      ...v.footer.map((col) => el('div', {}, ...col.flatMap((line, i) => [i ? el('br') : null, line.bold ? el('strong', { textContent: line.text }) : line.text])))),
   ].filter(present));
 }
 
@@ -749,7 +813,7 @@ function renderSaveState(justSaved) {
 function update() {
   let totals = null;
   try { totals = calculateTotals(invoice().items, { kleinunternehmer: invSettings().kleinunternehmer, discount: invoice().discount }); } catch { /* ungültige Eingabe */ }
-  renderPreview(totals);
+  renderPreview();
   applyLock();
   renderFieldErrors();
   renderTitle();
@@ -1067,7 +1131,7 @@ $('#design-reset').addEventListener('click', () => { closeWheel(); setDesign({ c
 function renderCompanyStatus() {
   const missing = companyMissing().length;
   const status = $('#company-status');
-  status.textContent = missing ? `${missing} Pflichtangabe${missing > 1 ? 'n' : ''} fehlen` : 'Vollständig';
+  status.textContent = missing ? (missing === 1 ? '1 Angabe fehlt oder ist ungültig' : `${missing} Angaben fehlen oder sind ungültig`) : 'Vollständig';
   status.classList.toggle('is-ok', !missing);
 }
 function openSettings(focusField) {
@@ -1158,7 +1222,7 @@ function renderCustomerList() {
 
 function replaceStore(next, message) {
   const before = structuredClone(store);
-  store = next;
+  store = normalize(next);
   fillSettings();
   resetEditorState();
   toast(message, { label: 'Rückgängig', run: () => { store = before; fillSettings(); resetEditorState(); } });

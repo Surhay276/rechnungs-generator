@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="22">
+  <meta name="app-version" content="23">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,7 +27,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=22">
+  <link rel="stylesheet" href="css/style.css?v=23">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -142,7 +142,7 @@
               </label>
               <div class="grid-2">
                 <label class="field span-2"><span class="field-label">Name / Firma</span><input class="input" data-field="customer.name"></label>
-                <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-field="customer.street"></label>
+                <label class="field span-2"><span class="field-label">Straße und Hausnummer</span><input class="input" data-field="customer.street" placeholder="Straße eingeben – Vorschläge erscheinen"></label>
                 <label class="field"><span class="field-label">PLZ</span><input class="input" data-field="customer.zip" inputmode="numeric" maxlength="10"></label>
                 <label class="field"><span class="field-label">Ort</span><input class="input" data-field="customer.city"></label>
                 <label class="field span-2"><span class="field-label">E-Mail <span class="optional">nur für die E-Rechnung nötig</span></span><input class="input" data-field="customer.email" type="email" inputmode="email"></label>
@@ -240,7 +240,7 @@
             <div class="card export mobile-only" data-keep>
               <button type="button" class="export-option" id="export-pdf">
                 <span class="export-icon"><svg class="icon"><use href="#i-download"/></svg></span>
-                <span><strong>PDF speichern</strong><small>Zum Versenden per E-Mail oder zum Ausdrucken.</small></span>
+                <span><strong>PDF exportieren</strong><small>Wird sofort gespeichert und geöffnet – zum Versenden oder Ausdrucken.</small></span>
               </button>
               <button type="button" class="export-option" id="export-xml">
                 <span class="export-icon"><svg class="icon"><use href="#i-code"/></svg></span>
@@ -274,7 +274,7 @@
     <footer class="footer no-print">
       Gebaut von <a href="https://github.com/Surhay276">Hüseyin Surhay Yilmaz</a> ·
       <a href="https://github.com/Surhay276/rechnungs-generator">Quellcode auf GitHub</a> ·
-      Alle Daten bleiben lokal in deinem Browser.
+      Alle Daten bleiben lokal in deinem Browser – nur für Adressvorschläge wird der getippte Adresstext abgefragt.
     </footer>
   </div>
 
@@ -297,7 +297,7 @@
       <p id="finalize-desc">Danach ist <strong id="finalize-number"></strong> festgeschrieben und kann nicht mehr geändert oder gelöscht werden – so verlangen es die GoBD. Für Korrekturen legst du eine Kopie mit neuer Nummer an.</p>
       <div class="modal-actions">
         <button type="submit" class="btn btn-secondary" value="cancel">Noch bearbeiten</button>
-        <button type="submit" class="btn btn-primary" id="finalize-confirm" value="confirm"><svg class="icon"><use href="#i-lock"/></svg><span id="finalize-confirm-label">Abschließen & PDF speichern</span></button>
+        <button type="submit" class="btn btn-primary" id="finalize-confirm" value="confirm"><svg class="icon"><use href="#i-lock"/></svg><span id="finalize-confirm-label">Abschließen & PDF exportieren</span></button>
       </div>
     </form>
   </dialog>
@@ -341,9 +341,9 @@
         </div>
         <div class="form-grid">
           <label class="field col-full"><span class="field-label">Name / Firma <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.name" autocomplete="organization" required></label>
-          <label class="field col-full"><span class="field-label">Straße und Hausnummer <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.street" autocomplete="street-address" required></label>
-          <label class="field col-zip"><span class="field-label">PLZ <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.zip" inputmode="numeric" autocomplete="postal-code" required></label>
-          <label class="field col-city"><span class="field-label">Ort <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.city" autocomplete="address-level2" required></label>
+          <label class="field col-full"><span class="field-label">Straße und Hausnummer <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.street" autocomplete="off" required></label>
+          <label class="field col-zip"><span class="field-label">PLZ <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.zip" inputmode="numeric" maxlength="10" autocomplete="off" required></label>
+          <label class="field col-city"><span class="field-label">Ort <span class="req" aria-hidden="true">*</span></span><input class="input" data-setting="company.city" autocomplete="off" required></label>
           <label class="field col-full"><span class="field-label">Ansprechpartner <span class="optional">optional</span></span><input class="input" data-setting="company.contact" autocomplete="name"></label>
           <label class="field col-city"><span class="field-label">E-Mail</span><input class="input" data-setting="company.email" type="email" inputmode="email" autocomplete="email"></label>
           <label class="field col-zip"><span class="field-label">Telefon</span><input class="input" data-setting="company.phone" type="tel" inputmode="tel" autocomplete="tel"></label>
@@ -431,6 +431,11 @@
       <section class="settings-card" aria-labelledby="set-data">
         <header class="settings-card-head"><h3 id="set-data">Daten</h3></header>
         <p class="field-hint">Alle Daten liegen nur in diesem Browser auf diesem Gerät.</p>
+        <label class="switch">
+          <input type="checkbox" role="switch" data-setting="addressLookup">
+          <span class="switch-track" aria-hidden="true"></span>
+          <span><strong>Adressvorschläge</strong><small>Beim Tippen von Straße und PLZ wird nur der Adresstext an OpenStreetMap-Dienste (Photon, OpenPLZ) gesendet.</small></span>
+        </label>
         <div class="data-actions">
           <button type="button" class="btn btn-secondary btn-sm" id="load-demo">Beispieldaten ansehen</button>
           <button type="button" class="btn btn-ghost btn-sm danger-text" id="reset-all">Alles löschen</button>
@@ -477,6 +482,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=22"></script>
+  <script type="module" src="js/app.js?v=23"></script>
 </body>
 </html>

@@ -249,6 +249,23 @@ select.input::-ms-expand { display: none; }
 .more[open] summary::before { content: "− "; }
 .more[open] { display: flex; flex-direction: column; gap: 12px; }
 
+/* ---------- Adressvorschläge ---------- */
+.ac-field { position: relative; }
+.ac-pop {
+  position: absolute; z-index: 40; left: 0; right: 0; top: calc(100% + 4px); /* genaue Höhe: direkt unter dem Eingabefeld (address.js) */
+  background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.ac-list { list-style: none; margin: 0; padding: 4px; max-height: 280px; overflow-y: auto; }
+.ac-option { display: flex; flex-direction: column; gap: 1px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; }
+.ac-option strong { font-size: 14px; font-weight: 600; color: var(--text); }
+.ac-option span { font-size: 13px; color: var(--text-3); }
+.ac-option:hover, .ac-option[aria-selected="true"] { background: var(--primary-soft); }
+.ac-note { margin: 0; padding: 6px 12px; font-size: 11px; color: var(--text-3); border-top: 1px solid var(--border); background: var(--surface-2); }
+.ac-note a { color: inherit; }
+.field-warn { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; margin: 0; font-size: 13px; font-weight: 500; line-height: 1.4; color: var(--warning-text); }
+.field-warn-action { min-height: 24px; padding: 0 2px; font-size: 13px; }
+html.pdf-busy #next-step, html.pdf-busy #export-pdf, html.pdf-busy #sumbar-action { opacity: .6; pointer-events: none; cursor: progress; }
+
 /* ---------- Kopfzeile ---------- */
 .topbar {
   position: sticky; top: 0; z-index: 30;
@@ -377,7 +394,7 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 }
 .inv-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10mm; min-height: 18mm; }
 .inv-title { font-size: 24pt; font-weight: 700; letter-spacing: -.02em; color: var(--ink); }
-.inv-logo { max-width: 55mm; max-height: 24mm; object-fit: contain; }
+.inv-logo { display: block; flex: none; width: auto; height: 24mm; max-width: 55mm; object-fit: contain; } /* genaue Größe setzt app.js */
 .inv-brand { font-size: 13pt; font-weight: 700; color: var(--ink); text-align: right; max-width: 70mm; }
 .inv-return { margin-top: 8mm; font-size: 7pt; color: #667085; border-bottom: 1px solid #d0d5dd; align-self: flex-start; padding-bottom: 1px; }
 .inv-address-row { display: flex; justify-content: space-between; gap: 12mm; margin: 4mm 0 8mm; min-height: 24mm; }
@@ -519,8 +536,9 @@ h1 { font-size: 18px; font-weight: 700; letter-spacing: -.015em; line-height: 1.
 .ds-total { margin-left: 30%; background: var(--ink-soft); color: var(--ink); font-weight: 700; }
 
 .logo-row { display: flex; gap: 16px; align-items: center; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
-.logo-preview { display: grid; place-items: center; width: 112px; height: 72px; flex: none; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: #fff; color: #98a2b3; overflow: hidden; }
-.logo-preview img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 6px; }
+.logo-preview { position: relative; display: grid; place-items: center; width: 112px; height: 72px; flex: none; border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); background: #fff; color: #98a2b3; overflow: hidden; }
+/* Logo vollständig zeigen: Bild füllt die Box, object-fit verkleinert es ohne Beschnitt */
+.logo-preview img { position: absolute; inset: 6px; width: calc(100% - 12px); height: calc(100% - 12px); object-fit: contain; }
 .logo-actions { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .logo-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 
