@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
   <meta charset="UTF-8">
-  <meta name="app-version" content="15">
+  <meta name="app-version" content="18">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#FFFFFF">
   <title>Rechnungsgenerator · Hüseyin Surhay Yilmaz</title>
@@ -27,7 +27,7 @@
   <link rel="image_src" href="https://surhay276.github.io/rechnungs-generator/docs/preview.jpg">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230E9384' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M4 2v20l3-2 3 2 2-2 2 2 3-2 3 2V2l-3 2-3-2-2 2-2-2-3 2Z'/><path d='M8 8h8M8 12h8M8 16h5'/></svg>">
   <link rel="preload" href="fonts/inter-var.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="css/style.css?v=15">
+  <link rel="stylesheet" href="css/style.css?v=18">
   <script>
     // Standard: hell. Dunkel nur, wenn der Nutzer es eingeschaltet hat (vor dem Rendern → kein Aufblitzen).
     document.documentElement.dataset.theme = 'light';
@@ -337,9 +337,7 @@
             <div class="field">
               <span class="field-label" id="color-label">Farbe</span>
               <div class="swatches" id="swatches" role="radiogroup" aria-labelledby="color-label">
-                <label class="swatch swatch-custom" id="swatch-custom" title="Eigene Farbe wählen">
-                  <input type="color" id="custom-color" aria-label="Eigene Farbe wählen">
-                </label>
+                <button type="button" class="swatch swatch-custom" id="swatch-custom" title="Eigene Farbe wählen" aria-label="Eigene Farbe wählen" aria-expanded="false" aria-controls="wheel-panel"></button>
               </div>
               <label class="hex-field">
                 <span class="hex-dot" id="hex-dot" aria-hidden="true"></span>
@@ -360,6 +358,19 @@
             <span class="ds-row"><i></i><i></i></span>
             <span class="ds-row"><i></i><i></i></span>
             <span class="ds-total"><span>Gesamt</span><span>1.190,00 €</span></span>
+          </div>
+        </div>
+        <div class="wheel-panel" id="wheel-panel" hidden>
+          <div class="wheel" id="wheel">
+            <span class="wheel-handle" id="wheel-handle" tabindex="0" role="slider" aria-label="Farbton und Sättigung – mit den Pfeiltasten ändern"></span>
+          </div>
+          <div class="wheel-side">
+            <label class="field"><span class="field-label">Helligkeit</span><input type="range" class="value-range" id="wheel-value" min="0" max="100" step="1"></label>
+            <div class="wheel-preview"><span class="wheel-swatch" id="wheel-swatch"></span><span class="mono" id="wheel-hex"></span></div>
+            <div class="wheel-actions">
+              <button type="button" class="btn btn-secondary btn-sm" id="wheel-cancel">Abbrechen</button>
+              <button type="button" class="btn btn-primary btn-sm" id="wheel-apply">Übernehmen</button>
+            </div>
           </div>
         </div>
         <p class="field-hint">Gilt für Titel, Tabellenkopf und Gesamtbetrag. Die Schriftfarbe passt sich automatisch an, damit alles lesbar bleibt.</p>
@@ -442,6 +453,6 @@
     </article>
   </template>
 
-  <script type="module" src="js/app.js?v=15"></script>
+  <script type="module" src="js/app.js?v=18"></script>
 </body>
 </html>

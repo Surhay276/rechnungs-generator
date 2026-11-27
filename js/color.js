@@ -67,3 +67,28 @@ export function invoiceTheme(value) {
   const text = readableOnWhite(accent);
   return { accent, onAccent, text, soft: mix(accent, '#FFFFFF', 0.9), line: mix(accent, '#FFFFFF', 0.75) };
 }
+
+/** HSV (Farbton 0–360°, Sättigung 0–1, Helligkeit 0–1) → Hex. Grundlage für das Farbrad. */
+export function hsvToHex(h, s, v) {
+  const hue = ((h % 360) + 360) % 360;
+  const f = (n) => {
+    const k = (n + hue / 60) % 6;
+    return v - v * s * Math.max(0, Math.min(k, 4 - k, 1));
+  };
+  return toHex([f(5), f(3), f(1)].map((c) => c * 255));
+}
+
+/** Hex → HSV, damit das Farbrad mit der aktuell gewählten Farbe startet. */
+export function hexToHsv(value) {
+  const hex = normalizeHex(value) ?? DEFAULT_COLOR;
+  const [r, g, b] = toRgb(hex).map((c) => c / 255);
+  const max = Math.max(r, g, b);
+  const d = max - Math.min(r, g, b);
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+  }
+  return { h: (h * 60 + 360) % 360, s: max ? d / max : 0, v: max };
+}

@@ -45,3 +45,17 @@ test('Ungültige Farbe fällt auf den Standard zurück', () => {
 test('readableOnWhite endet immer lesbar', () => {
   for (const hex of ['#FFFFFF', '#FFFF00', '#00FFFF', '#F0F0F0']) assert.ok(contrast(readableOnWhite(hex), '#FFFFFF') >= 4.5, hex);
 });
+
+test('Farbrad: HSV ↔ Hex', async () => {
+  const { hsvToHex, hexToHsv } = await import('../js/color.js');
+  assert.equal(hsvToHex(0, 1, 1), '#FF0000');
+  assert.equal(hsvToHex(120, 1, 1), '#00FF00');
+  assert.equal(hsvToHex(240, 1, 1), '#0000FF');
+  assert.equal(hsvToHex(360, 1, 1), '#FF0000');
+  assert.equal(hsvToHex(200, 0, 1), '#FFFFFF');
+  assert.equal(hsvToHex(200, 1, 0), '#000000');
+  for (const { hex } of PRESET_COLORS) {
+    const { h, s, v } = hexToHsv(hex);
+    assert.equal(hsvToHex(h, s, v), hex);
+  }
+});

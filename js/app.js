@@ -2,11 +2,11 @@ import {
   UNITS, unitLabel, toCents, calculateTotals, lineNet, formatEUR, nextInvoiceNumber, addDays, dueDate,
   skontoInfo, isValidIBAN, formatIBAN, epcPayload, grossFromNet, netFromGross, formatAddress,
   validateInvoiceFields, validateXRechnungFields, toXRechnung, KLEINUNTERNEHMER_HINWEIS,
-} from './invoice.js?v=15';
-import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme } from './color.js?v=15';
+} from './invoice.js?v=18';
+import { DEFAULT_COLOR, PRESET_COLORS, normalizeHex, invoiceTheme, hsvToHex, hexToHsv } from './color.js?v=18';
 import { qrcode } from './vendor/qrcode.mjs';
 import { stringToBytes as utf8Bytes } from './vendor/qrcode_UTF8.mjs';
-import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=15';
+import { sampleSettings, sampleInvoice } from '../scripts/samples.mjs?v=18';
 
 qrcode.stringToBytes = utf8Bytes; // GiroCode verlangt UTF-8 (Umlaute im Namen)
 
@@ -854,6 +854,7 @@ function fillSettings() {
     else input.value = value ?? '';
   }
   renderLogo();
+  closeWheel();
   renderDesign();
   renderCustomerList();
   renderCompanyStatus();
@@ -882,7 +883,6 @@ function renderDesign() {
   }
   customSwatch.classList.toggle('is-active', !preset);
   customSwatch.style.setProperty('--swatch', preset ? 'transparent' : color);
-  $('#custom-color').value = color.toLowerCase();
   const hexInput = $('#hex-input');
   if (document.activeElement !== hexInput) { hexInput.value = color; hexInput.classList.remove('is-invalid'); }
   $('#hex-dot').style.background = color;
@@ -903,7 +903,83 @@ function setDesign(patch) {
 
 swatchBox.addEventListener('click', (e) => {
   const b = e.target.closest('.swatch[data-color]');
-  if (b) setDesign({ color: b.dataset.color });
+  if (b) { closeWheel(); setDesign({ color: b.dataset.color }); }
+});
+
+// Eigenes Farbrad statt des Browser-Farbwählers (der sieht z. B. auf Android völlig anders aus).
+// Farbton = Winkel, Sättigung = Abstand zur Mitte, Helligkeit = Regler daneben.
+const wheelPanel = $('#wheel-panel');
+const wheel = $('#wheel');
+const wheelHandle = $('#wheel-handle');
+let wheelState = null; // { h, s, v, before }
+
+function renderWheel() {
+  const { h, s, v } = wheelState;
+  const hex = hsvToHex(h, s, v);
+  const rad = (h * Math.PI) / 180;
+  wheelHandle.style.left = `${50 + Math.cos(rad) * s * 50}%`;
+  wheelHandle.style.top = `${50 + Math.sin(rad) * s * 50}%`;
+  wheelHandle.style.background = hex;
+  wheelHandle.setAttribute('aria-valuetext', hex);
+  const range = $('#wheel-value');
+  range.value = String(Math.round(v * 100));
+  range.style.setProperty('--range-to', hsvToHex(h, s, 1));
+  $('#wheel-swatch').style.background = hex;
+  $('#wheel-hex').textContent = hex;
+}
+function setWheel(patch) {
+  Object.assign(wheelState, patch);
+  renderWheel();
+  setDesign({ color: hsvToHex(wheelState.h, wheelState.s, wheelState.v) });
+}
+function openWheel() {
+  const { color } = design();
+  wheelState = { ...hexToHsv(color), before: color };
+  wheelPanel.hidden = false;
+  customSwatch.setAttribute('aria-expanded', 'true');
+  renderWheel();
+  wheelPanel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+function closeWheel(restore = false) {
+  if (!wheelState) return;
+  if (restore) setDesign({ color: wheelState.before });
+  wheelState = null;
+  wheelPanel.hidden = true;
+  customSwatch.setAttribute('aria-expanded', 'false');
+}
+customSwatch.addEventListener('click', () => (wheelState ? closeWheel() : openWheel()));
+$('#wheel-apply').addEventListener('click', () => { closeWheel(); customSwatch.focus(); });
+$('#wheel-cancel').addEventListener('click', () => { closeWheel(true); customSwatch.focus(); });
+$('#wheel-value').addEventListener('input', (e) => setWheel({ v: Number(e.target.value) / 100 }));
+
+function pickFromWheel(e) {
+  const r = wheel.getBoundingClientRect();
+  const dx = e.clientX - (r.left + r.width / 2);
+  const dy = e.clientY - (r.top + r.height / 2);
+  const h = ((Math.atan2(dy, dx) * 180) / Math.PI + 360) % 360;
+  const s = Math.min(1, Math.hypot(dx, dy) / (r.width / 2));
+  // Das Rad zeigt die Farben in voller Leuchtkraft. Wer bei sehr dunkler Helligkeit hineintippt,
+  // will die angetippte Farbe sehen – daher auf einen kräftigen, gut druckbaren Wert anheben.
+  setWheel(wheelState.v < 0.4 ? { h, s, v: 0.75 } : { h, s });
+}
+wheel.addEventListener('pointerdown', (e) => {
+  e.preventDefault();
+  wheel.setPointerCapture(e.pointerId);
+  wheelHandle.focus({ preventScroll: true });
+  pickFromWheel(e);
+});
+wheel.addEventListener('pointermove', (e) => { if (wheel.hasPointerCapture(e.pointerId)) pickFromWheel(e); });
+wheelHandle.addEventListener('keydown', (e) => {
+  const step = e.shiftKey ? 15 : 4;
+  const moves = {
+    ArrowRight: { h: wheelState.h + step }, ArrowLeft: { h: wheelState.h - step },
+    ArrowUp: { s: Math.min(1, wheelState.s + step / 100) }, ArrowDown: { s: Math.max(0, wheelState.s - step / 100) },
+  };
+  if (!moves[e.key]) return;
+  e.preventDefault();
+  const next = { ...moves[e.key] };
+  if ('h' in next) next.h = (next.h + 360) % 360;
+  setWheel(next);
 });
 swatchBox.addEventListener('keydown', (e) => {
   const list = $$('.swatch[data-color]', swatchBox);
@@ -914,18 +990,19 @@ swatchBox.addEventListener('keydown', (e) => {
   next.focus();
   setDesign({ color: next.dataset.color });
 });
-$('#custom-color').addEventListener('input', (e) => setDesign({ color: normalizeHex(e.target.value) }));
 $('#hex-input').addEventListener('input', (e) => {
   const hex = normalizeHex(e.target.value);
   e.target.classList.toggle('is-invalid', !hex && e.target.value.trim().length >= 4);
-  if (hex) setDesign({ color: hex });
+  if (!hex) return;
+  setDesign({ color: hex });
+  if (wheelState) { Object.assign(wheelState, hexToHsv(hex)); renderWheel(); }
 });
 $('#hex-input').addEventListener('blur', () => renderDesign());
 $('#head-chips').addEventListener('click', (e) => {
   const chip = e.target.closest('.chip[data-head]');
   if (chip) setDesign({ head: chip.dataset.head });
 });
-$('#design-reset').addEventListener('click', () => setDesign({ color: DEFAULT_COLOR, head: 'filled' }));
+$('#design-reset').addEventListener('click', () => { closeWheel(); setDesign({ color: DEFAULT_COLOR, head: 'filled' }); });
 
 function renderCompanyStatus() {
   const missing = companyMissing().length;
